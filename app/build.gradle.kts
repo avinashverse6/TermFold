@@ -20,6 +20,14 @@ android {
         targetSdk = 28
         versionCode = 18
         versionName = "2.3"
+
+        ndk {
+            // Every architecture this app has a complete runtime for: PRoot and its loader, a
+            // Debian image, a compatibility library and a terminal emulator build. Stated
+            // explicitly so an APK can never be produced for an ABI that is missing one of
+            // them (an ABI directory in jniLibs alone is not support).
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
     }
 
     androidResources {

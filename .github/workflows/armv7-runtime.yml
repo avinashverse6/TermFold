@@ -1,0 +1,114 @@
+name: armv7-runtime
+on:
+  push:
+    branches: [arena/b885914c-termfold]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  stage-and-build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage the ARMv7 runtime
+        run: |
+          set -eux
+          python3 -m pip install --quiet ziglang
+          python3 tools/fetch-shell-runtime.py --abi armeabi-v7a
+          python3 tools/build-compat-shim.py --abi armeabi-v7a
+          ls -l app/src/main/jniLibs/armeabi-v7a app/src/main/assets/compat-shim-armeabi-v7a.so
+          for f in app/src/main/jniLibs/armeabi-v7a/* app/src/main/assets/compat-shim-armeabi-v7a.so; do
+            echo "--- $f"; file "$f"; readelf -hd "$f" 2>/dev/null | grep -E 'Class|Machine|Flags|NEEDED' | head -8
+          done
+
+      - name: Run the compatibility shim inside the armhf guest
+        run: |
+          R=/tmp/shim-report.txt
+          : > $R
+          set +e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user dosfstools > /dev/null 2>&1
+          Q=$(command -v qemu-arm-static || command -v qemu-arm)
+          echo "qemu: $Q" >> $R
+          sudo mkdir -p /tmp/rf
+          sudo tar xzf app/src/main/assets/debian-armeabi-v7a.bin -C /tmp/rf
+          sudo cp "$Q" /tmp/rf/usr/bin/qemu-arm-static
+          sudo cp /etc/resolv.conf /tmp/rf/etc/resolv.conf
+          sudo mkdir -p /tmp/rf/opt/termfold
+          sudo cp app/src/main/assets/compat-shim-armeabi-v7a.so /tmp/rf/opt/termfold/libtermfold-compat.so
+          echo /opt/termfold/libtermfold-compat.so | sudo tee /tmp/rf/etc/ld.so.preload >> $R
+          sudo mkdir -p /tmp/rf/proc /tmp/rf/sys /tmp/rf/dev /tmp/rf/mnt/vfat
+          sudo mount -t proc proc /tmp/rf/proc
+          sudo mount -t sysfs sys /tmp/rf/sys
+          # A filesystem that cannot hold hard links, to make the kernel refuse link(2) the way
+          # Android's SELinux policy does, so the copy fallback is actually exercised.
+          dd if=/dev/zero of=/tmp/vfat.img bs=1M count=32 status=none
+          mkfs.vfat /tmp/vfat.img > /dev/null
+          sudo mount -o loop,uid=0,gid=0 /tmp/vfat.img /tmp/rf/mnt/vfat
+          echo hello-from-armhf > /tmp/link-src.txt
+          sudo cp /tmp/link-src.txt /tmp/rf/mnt/src.txt
+          chroot_cmd() { sudo chroot /tmp/rf /usr/bin/qemu-arm-static /bin/bash -c "$1"; }
+          {
+            echo "== identity"
+            chroot_cmd 'uname -m; dpkg --print-architecture; ldd --version | head -1'
+            echo "== shim loads under every guest program (ld.so.preload)"
+            chroot_cmd 'python3 -c "import sys; print(sys.version.split()[0])" 2>&1 | tail -2'
+            chroot_cmd 'git --version 2>&1 | tail -2'
+            chroot_cmd 'dpkg-deb --help 2>&1 | head -2'
+            chroot_cmd 'apt-get update 2>&1 | tail -2'
+            echo "== hard link refused by the filesystem -> must become a copy"
+            chroot_cmd 'cd /mnt && ln src.txt dst.txt; echo "ln exit=$?"; cmp src.txt dst.txt && echo COPY_OK; stat -c "nlink=%h" dst.txt'
+            echo "== a link the kernel allows is still a link"
+            chroot_cmd 'cd /tmp && ln -f /bin/true t1 && stat -c "nlink=%h" t1'
+            echo "== apt install in the 32-bit guest"
+            chroot_cmd 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y --no-install-recommends python3 git curl ca-certificates 2>&1 | tail -3; python3 --version; git --version'
+            echo "== node 22 armv7l"
+            chroot_cmd 'cd /tmp && curl -fsSLO https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz && sha256sum node-v22.23.3-linux-armv7l.tar.xz && tar xJf node-v22.23.3-linux-armv7l.tar.xz && ./node-v22.23.3-linux-armv7l/bin/node --version && ./node-v22.23.3-linux-armv7l/bin/node -e "console.log(process.arch, process.platform)"'
+          } 2>&1 | tee -a $R
+          sudo umount /tmp/rf/mnt/vfat /tmp/rf/sys /tmp/rf/proc || true
+
+      - name: Stage every ABI's image and build the APKs
+        run: |
+          R=/tmp/build-report.txt
+          : > $R
+          set +e
+          {
+            echo "== java"; java -version 2>&1 | head -2
+            echo "== staging all rootfs images"
+            yes | sdkmanager --licenses > /dev/null 2>&1 || true
+            python3 tools/fetch-shell-runtime.py
+            python3 tools/build-compat-shim.py
+            echo "== unit tests"
+            ./gradlew --no-daemon :app:testDebugUnitTest 2>&1 | tail -25
+            echo "== debug apk"
+            ./gradlew --no-daemon :app:assembleDebug 2>&1 | tail -25
+            echo "== release apk"
+            ./gradlew --no-daemon :app:assembleRelease 2>&1 | tail -25
+            echo "== apk contents"
+            for apk in app/build/outputs/apk/*/*.apk; do
+              echo "-- $apk $(stat -c%s $apk) bytes"
+              unzip -l "$apk" | grep -E 'lib/|assets/debian|assets/compat-shim' | awk '{print $1, $4}'
+            done
+            echo "== native ELF inside the armv7 apk"
+            mkdir -p /tmp/apkx && cd /tmp/apkx
+            for apk in /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk; do
+              rm -rf x && mkdir x && (cd x && unzip -q "$apk")
+              for so in x/lib/armeabi-v7a/*; do echo "--- $(basename $apk) $(basename $so)"; file "$so"; done
+            done
+          } 2>&1 | tee -a $R
+
+      - name: Commit the staged binaries and the reports
+        if: always()
+        run: |
+          cp /tmp/shim-report.txt shim-report.txt 2>/dev/null || echo "no shim report" > shim-report.txt
+          cp /tmp/build-report.txt build-report.txt 2>/dev/null || echo "no build report" > build-report.txt
+          git config user.name arena-agent
+          git config user.email agent@arena.ai
+          git add -f app/src/main/jniLibs/armeabi-v7a \
+                     app/src/main/assets/compat-shim-armeabi-v7a.so \
+                     shim-report.txt build-report.txt
+          git commit -m "armv7: staged runtime, build and guest reports [skip ci]" || true
+          git push || true

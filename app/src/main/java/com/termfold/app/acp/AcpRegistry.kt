@@ -2,6 +2,7 @@ package com.termfold.app.acp
 
 import android.content.Context
 import android.os.Build
+import com.termfold.app.shell.GuestAbi
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -92,6 +93,24 @@ object AcpRegistry {
      */
     val UNSUPPORTED = setOf("antigravity-acp")
 
+    /**
+     * Agents whose engine is a native binary their publisher builds for 64-bit CPUs only.
+     *
+     * Every one of them was checked against its own release listing: Claude Code ships
+     * `linux-x64`/`linux-arm64` (and their musl twins), Codex the same, OpenCode and Cursor
+     * publish arm64/x86_64 only, and omp is a Bun-compiled executable — Bun has no 32-bit ARM
+     * build. On a 32-bit ARM device there is therefore nothing to install, and offering the
+     * session would only end in an exec failure or an `npm` platform error. They are filtered out
+     * here, so `agents()` never lists them and existing sessions say so instead of downloading.
+     */
+    private val SIXTY_FOUR_BIT_ONLY = setOf(
+        "claude-acp", "codex-acp", "cursor", "devin", "opencode", "omp",
+    )
+
+    /** True when [agentId] can actually be installed and run on this device. */
+    fun usable(agentId: String, abi: GuestAbi? = GuestAbi.current()): Boolean =
+        agentId !in UNSUPPORTED && ((abi?.is64Bit ?: true) || agentId !in SIXTY_FOUR_BIT_ONLY)
+
     private val OFFERED = listOf(
         "claude-acp", "codex-acp", "opencode", "cursor", "devin", "pi-acp", "omp",
     )
@@ -106,7 +125,7 @@ object AcpRegistry {
             runCatching { fromJson(agents.getJSONObject(index)) }.getOrNull()
         }.filterNotNull()
         (fromRegistry + extraAgents())
-            .filter { it.id !in UNSUPPORTED }
+            .filter { usable(it.id) }
             .distinctBy { it.id }
             .sortedBy { it.name.lowercase() }
     }.onFailure { Log.w(TAG, "Could not parse the registry", it) }.getOrNull()
@@ -119,7 +138,9 @@ object AcpRegistry {
      * The npm package is not used because it needs a newer Bun than the guest has.
      */
     private fun extraAgents(): List<AcpAgent> {
-        val arch = if (Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true) "x64" else "arm64"
+        // No build, no agent: omp is Bun-compiled and Bun has no 32-bit ARM release.
+        val arch = GuestAbi.current()?.ompTarget
+        if (arch == null) return emptyList()
         return listOf(
             AcpAgent(
                 id = "omp",
@@ -150,9 +171,10 @@ object AcpRegistry {
         val uvx = dist?.optJSONObject("uvx")
 
         if (binary != null) {
-            val platform = when {
-                Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "linux-x86_64"
-                else -> "linux-aarch64"
+            // The registry keys binaries by CPU (`linux-aarch64`, `linux-x86_64`) and has no key
+            // for 32-bit ARM, so on that ABI every binary-only agent is skipped here.
+            val platform = requireNotNull(GuestAbi.current()?.acpBinaryPlatform) {
+                "the registry has no binary distribution for ${Build.SUPPORTED_ABIS.firstOrNull()}"
             }
             // Only the exact ABI is usable: the guest has no user-mode emulation, so an
             // x86_64 binary would die with a confusing exec failure on an arm64 phone and

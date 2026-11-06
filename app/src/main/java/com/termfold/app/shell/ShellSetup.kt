@@ -39,6 +39,18 @@ object ShellSetup {
         "qwen" to "@qwen-code/qwen-code",
     )
 
+    /**
+     * CLIs that are only a small JavaScript launcher around a native binary their publisher builds
+     * for 64-bit CPUs: Claude Code and Codex ship `linux-x64`/`linux-arm64` engines, and OpenCode
+     * is compiled with Bun, which has no 32-bit ARM release. On such a device the npm install
+     * either fails with a platform error or leaves a launcher that cannot exec anything, so the
+     * stand-in explains the situation instead of pretending to install.
+     *
+     * The remaining CLIs (gemini, pi, qwen) are plain JavaScript on Node.js, which does publish a
+     * 32-bit ARM build, so they are installed the usual way.
+     */
+    private val NEEDS_64_BIT = setOf("claude", "codex", "opencode")
+
     fun isDone(context: Context): Boolean = File(ShellPaths.rootfsDir(context), MARKER).isFile
 
     /**
@@ -56,8 +68,10 @@ object ShellSetup {
                 File(rootfs, "usr/local/bin/termfold-setup"),
                 "#!/bin/sh\n# Re-runs TermFold's environment setup.\nexec /bin/bash $SCRIPT --force \"\$@\"\n",
             )
+            val sixtyFourBit = GuestAbi.current()?.is64Bit ?: true
             CLIS.forEach { (bin, pkg) ->
-                writeExecutable(File(rootfs, "usr/local/bin/$bin"), standIn(bin, pkg))
+                val script = if (!sixtyFourBit && bin in NEEDS_64_BIT) unavailable(bin, pkg) else standIn(bin, pkg)
+                writeExecutable(File(rootfs, "usr/local/bin/$bin"), script)
             }
             // Google Antigravity's ACP server cannot run here (see AcpRegistry); drop its
             // download (about 1 GB) and TermFold's experimental adapter if an earlier build left them.
@@ -170,6 +184,24 @@ object ShellSetup {
         |  fi
         |fi
         |exec "${'$'}real" "${'$'}@"
+        |""".trimMargin()
+
+    /**
+     * What a command name does on a device its publisher has no binary for: says so, and points at
+     * the agents that do work there. Nothing else changes — the rest of the environment, the
+     * shell, apt, Python and the JavaScript agents are unaffected.
+     */
+    private fun unavailable(bin: String, pkg: String): String = """
+        |#!/bin/sh
+        |# TermFold: $pkg has no 32-bit ARM build, so there is nothing to install here.
+        |cat >&2 <<'EOF'
+        |$bin is not available on a 32-bit ARM device.
+        |
+        |$pkg is published for arm64 and x86_64 only (its engine is a native binary).
+        |Use it on a 64-bit device. On this one, gemini, pi and qwen work, and
+        |everything else in Debian (apt, git, python, node) is unaffected.
+        |EOF
+        |exit 1
         |""".trimMargin()
 
     private fun writeExecutable(file: File, content: String) {

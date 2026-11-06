@@ -2,6 +2,7 @@ package com.termfold.app.acp
 
 import android.content.Context
 import android.util.Log
+import com.termfold.app.shell.GuestAbi
 import com.termfold.app.shell.ProotCommand
 import com.termfold.app.shell.ShellPaths
 import com.termfold.app.shell.TarExtractor
@@ -287,15 +288,22 @@ object AcpInstaller {
         return result.second.contains("RENAME_OK")
     }
 
-    /** Installs the Bun runtime — one static binary — for npm-free package running. */
+    /**
+     * Installs the Bun runtime — one static binary — for npm-free package running.
+     *
+     * Bun publishes no 32-bit ARM build, and there is no smaller substitute here: on such a device
+     * this failure has to be reported rather than worked around, so the message says why.
+     */
     private fun ensureBun(context: Context, onProgress: (String) -> Unit) {
         val bunDir = File(ShellPaths.rootfsDir(context), "opt/bun")
         if (File(bunDir, "bun").isFile) return
 
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x64"
-            else -> "aarch64"
-        }
+        val abi = GuestAbi.current() ?: error("Unsupported CPU architecture.")
+        val arch = abi.bunTarget ?: error(
+            "Bun has no ${abi.androidAbi} build, and npm's own package runner is not working in this " +
+                "environment. Reopen the session to retry; if it keeps failing, install the agent " +
+                "with npm from a Shell instead.",
+        )
         val url = "https://github.com/oven-sh/bun/releases/download/bun-v1.1.34/bun-linux-$arch.zip"
         onProgress("Downloading Bun runtime")
         val archive = download(url, context.cacheDir, "bun")
@@ -349,11 +357,10 @@ object AcpInstaller {
         if (File(uvDir, "uvx").isFile) return
 
         onProgress("Downloading uv runtime")
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x86_64"
-            else -> "aarch64"
-        }
-        val url = "https://github.com/astral-sh/uv/releases/latest/download/uv-$arch-unknown-linux-musl.tar.gz"
+        // uv is published per target triple, and it does have a 32-bit ARM build
+        // (uv-armv7-unknown-linux-musleabihf): a static musl binary needs nothing from the guest.
+        val target = (GuestAbi.current() ?: error("Unsupported CPU architecture.")).uvTarget
+        val url = "https://github.com/astral-sh/uv/releases/latest/download/uv-$target.tar.gz"
         val archive = download(url, context.cacheDir, "uv")
         onProgress("Unpacking uv")
         uvDir.deleteRecursively()
@@ -362,7 +369,7 @@ object AcpInstaller {
         AcpArchives.extract(archive, staging, null)
         archive.delete()
 
-        // The tarball unpacks as uv-<arch>-unknown-linux-musl/{uv,uvx} — normalise to /opt/uv.
+        // The tarball unpacks as uv-<target>/{uv,uvx} — normalise to /opt/uv.
         val unpackedBin = staging.walkTopDown().firstOrNull { it.isFile && it.name == "uvx" }
             ?: error("uv archive did not contain the uvx binary")
         uvDir.mkdirs()
@@ -468,10 +475,9 @@ object AcpInstaller {
         if (File(nodeDir, "bin/npx").isFile && marker.isFile && marker.readText() == NODE_VERSION) return
 
         onProgress("Installing Node.js (one-time)")
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x64"
-            else -> "arm64"
-        }
+        // nodejs.org publishes linux-armv7l as well as linux-arm64 and linux-x64, so every
+        // architecture this app supports gets the same pinned version rather than an apt one.
+        val arch = (GuestAbi.current() ?: error("Unsupported CPU architecture.")).nodeArch
         val url = "https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$arch.tar.gz"
         val archive = download(url, context.cacheDir, "node")
         // Checked against the release's published SHA-256 list before anything is unpacked.
@@ -480,7 +486,9 @@ object AcpInstaller {
             .firstOrNull { it.trim().endsWith("  node-$NODE_VERSION-linux-$arch.tar.gz") }
             ?.substringBefore(' ')
         sums.delete()
-        checkNotNull(expected) { "Node.js checksum not found for $arch" }
+        checkNotNull(expected) {
+            "nodejs.org does not publish a linux-$arch build of Node.js $NODE_VERSION."
+        }
         verify(archive, expected)
         onProgress("Unpacking Node.js")
         val parent = File(ShellPaths.rootfsDir(context), "opt")

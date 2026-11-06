@@ -76,9 +76,13 @@ apt-get "${APT_OPTS[@]}" install --no-install-recommends \
 
 step "Installing Node.js $NODE_VERSION"
 if [ "$(cat /opt/node/.termfold-version 2>/dev/null)" != "$NODE_VERSION" ]; then
+  # nodejs.org publishes linux-x64, linux-arm64 and linux-armv7l builds of every release, so
+  # 32-bit ARM devices get the same pinned Node as the rest (this is Node's own armv7l build,
+  # not a distro package).
   case "$(uname -m)" in
     x86_64) arch=x64 ;;
     aarch64|arm64) arch=arm64 ;;
+    armv7l|armv8l|arm) arch=armv7l ;;
     *) fail "No Node.js build for $(uname -m)." ;;
   esac
   url="https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$arch.tar.xz"
@@ -113,4 +117,12 @@ fi
 touch "$MARK"
 printf '\n%sReady.%s node %s · npm %s · python %s · git %s\n' "$green" "$reset" \
   "$(node --version)" "$(npm --version)" "$(python3 --version | cut -d' ' -f2)" "$(git --version | cut -d' ' -f3)"
-printf '%sAgent CLIs install themselves the first time you run them: claude, codex, gemini, opencode, pi, qwen.%s\n\n' "$dim" "$reset"
+case "$(uname -m)" in
+  x86_64|aarch64|arm64)
+    printf '%sAgent CLIs install themselves the first time you run them: claude, codex, gemini, opencode, pi, qwen.%s\n\n' "$dim" "$reset" ;;
+  *)
+    # Claude Code, Codex and OpenCode are native binaries that their publishers build for
+    # 64-bit CPUs only; the JavaScript agents work here.
+    printf '%sAgent CLIs install themselves the first time you run them: gemini, pi, qwen.%s\n' "$dim" "$reset"
+    printf '%sclaude, codex and opencode need a 64-bit device: their publishers ship no 32-bit ARM build.%s\n\n' "$dim" "$reset" ;;
+esac

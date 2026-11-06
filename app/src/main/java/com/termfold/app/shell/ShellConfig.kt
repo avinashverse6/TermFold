@@ -51,11 +51,11 @@ object ShellConfig {
     fun rootfsAsset(abi: String): String = "debian-$abi.bin"
 
     /**
+     * The ABI this app has a complete runtime for, or null.
+     *
      * A rootfs must match the host CPU: PRoot only runs foreign binaries when a QEMU user-mode
-     * binary is supplied, and none is bundled.
+     * binary is supplied, and none is bundled — a 32-bit ARM device must get the 32-bit ARM
+     * image, never the arm64 one. [GuestAbi] is the single list of what exists.
      */
-    fun rootfsAbi(abi: String): String? = when (abi) {
-        "arm64-v8a", "x86_64" -> abi
-        else -> null
-    }
+    fun rootfsAbi(abi: String): String? = GuestAbi.of(abi)?.androidAbi
 }

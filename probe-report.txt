@@ -1,63 +1,0 @@
-=== proot pool listing
-STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/p/proot/
-../
-proot_5.1.107.102_aarch64.deb
-proot_5.1.107.102_arm.deb
-proot_5.1.107.102_i686.deb
-proot_5.1.107.102_x86_64.deb
-STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/
-../
-libtalloc_2.5.0_aarch64.deb
-libtalloc_2.5.0_arm.deb
-libtalloc_2.5.0_i686.deb
-libtalloc_2.5.0_x86_64.deb
-STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/
-../
-libandroid-shmem_0.7_aarch64.deb
-libandroid-shmem_0.7_arm.deb
-libandroid-shmem_0.7_i686.deb
-libandroid-shmem_0.7_x86_64.deb
-=== old repos for 32-bit
-STATUS 404 https://packages.termux.dev/apt/termux-main-21/dists/stable/main/binary-arm/Packages.xz
-STATUS 404 https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-arm/Packages.xz
-=== arch list of termux-main dists
-=== qemu
-Selecting previously unselected package ubuntu-helper-virt-hwe.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 213197 files and directories currently installed.)
-Preparing to unpack .../ubuntu-helper-virt-hwe_1%3a10.2.1+ds-1ubuntu4.4_all.deb ...
-Unpacking ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
-Selecting previously unselected package ubuntu-virt.
-Preparing to unpack .../ubuntu-virt_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
-Unpacking ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
-Selecting previously unselected package qemu-user.
-Preparing to unpack .../qemu-user_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
-Unpacking qemu-user (1:10.2.1+ds-1ubuntu3.3) ...
-Selecting previously unselected package qemu-user-binfmt.
-Preparing to unpack .../qemu-user-binfmt_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
-Unpacking qemu-user-binfmt (1:10.2.1+ds-1ubuntu3.3) ...
-Setting up ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
-Setting up ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
-Setting up qemu-user (1:10.2.1+ds-1ubuntu3.3) ...
-Setting up qemu-user-binfmt (1:10.2.1+ds-1ubuntu3.3) ...
-Processing triggers for man-db (2.13.1-1build1) ...
-Not building database; man-db/auto-update is not 'true'.
-Processing triggers for systemd (259.9-0ubuntu0.1) ...
-
-Running kernel seems to be up-to-date.
-
-Restarting services...
-
-Service restarts being deferred:
- systemctl restart hosted-compute-agent.service
-
-No containers need to be restarted.
-
-No user sessions are running outdated binaries.
-
-No VM guests are running outdated hypervisor (qemu) binaries on this host.
--rwxr-xr-x 1 root root 4411192 Sep  2 09:18 /usr/bin/qemu-arm
-lrwxrwxrwx 1 root root      12 Sep  2 09:18 /usr/bin/qemu-arm64 -> qemu-aarch64
--rwxr-xr-x 1 root root 4423480 Sep  2 09:18 /usr/bin/qemu-armeb
-lrwxrwxrwx 1 root root       8 Sep  2 09:18 /usr/bin/qemu-armel -> qemu-arm
-lrwxrwxrwx 1 root root       8 Sep  2 09:18 /usr/bin/qemu-armhf -> qemu-arm
-/usr/bin/qemu-arm

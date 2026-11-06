@@ -39,29 +39,24 @@ TERMUX_POOL = "https://packages.termux.dev/apt/termux-main/pool/main"
 # proot is built by Termux and is the only thing here that understands
 # Android's seccomp policy and the loader hand-off.
 #
-# Termux stopped building the 32-bit architectures in 2023, so the files it
-# publishes for arm are frozen at the last build it made for them: proot
-# 5.1.107.102 and talloc 2.5.0, against 5.1.107.92 / 2.4.3 for arm64 and
-# x86_64. They are the same GPL-2.0 / LGPL-3.0 PRoot and talloc sources, built
-# for Android ARMv7 by the same Termux build system (NDK r29), and they are the
-# only genuine ARMv7 Android builds that exist upstream. libandroid-shmem is
-# 0.7 for every ABI.
+# One version per package for every architecture: they are the newest builds
+# Termux publishes (checked 2026-11-06), and for arm they are the *last* builds
+# it published — Termux stopped building the 32-bit architectures in 2023, so
+# proot 5.1.107.102 and talloc 2.5.0 are where ARMv7 stayed while arm64 and
+# x86_64 moved on. Pinning one version for all three keeps the runtime
+# identical in behaviour and keeps the fetch reproducible; a version that has
+# been removed from the pool is a build failure here rather than a surprise.
 PROOT_PKGS = {
-    "arm64-v8a": {
-        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.92_aarch64.deb",
-        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.4.3_aarch64.deb",
-        "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb",
-    },
-    "armeabi-v7a": {
-        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.102_arm.deb",
-        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.5.0_arm.deb",
-        "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb",
-    },
-    "x86_64": {
-        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.92_x86_64.deb",
-        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.4.3_x86_64.deb",
-        "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_x86_64.deb",
-    },
+    abi: {
+        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.102_{termux_arch}.deb",
+        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.5.0_{termux_arch}.deb",
+        "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_{termux_arch}.deb",
+    }
+    for abi, termux_arch in (
+        ("arm64-v8a", "aarch64"),
+        ("armeabi-v7a", "arm"),
+        ("x86_64", "x86_64"),
+    )
 }
 
 # The official Debian 13 "trixie-slim" rootfs, taken from the debuerreotype artifacts repository

@@ -14,7 +14,7 @@
   <a href="https://github.com/Bibarud/TermFold/releases/latest"><img alt="Download APK" src="https://img.shields.io/github/v/release/Bibarud/TermFold?label=Download%20APK&color=ff7a2e"></a>
   <a href="https://bibarud.github.io/TermFold/"><img alt="Website" src="https://img.shields.io/badge/website-bibarud.github.io%2FTermFold-ff7a2e"></a>
   <img alt="Android 8+" src="https://img.shields.io/badge/Android-8.0%2B-3ddc84">
-  <img alt="arm64 and x86_64" src="https://img.shields.io/badge/ABI-arm64%20%7C%20x86__64-555">
+  <img alt="arm64, armv7 and x86_64" src="https://img.shields.io/badge/ABI-arm64%20%7C%20armv7%20%7C%20x86__64-555">
   <a href="LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
 </p>
 
@@ -103,8 +103,14 @@ app, proot scripts and broken package installs. TermFold is one app that does it
    chat. Sign in once in a Shell (for example `claude` or `codex login`), and the chat uses the
    same sign-in.
 
-Requirements: Android 8.0+ on an arm64 (almost every phone and tablet) or x86_64 device, and a
-few GB of free space for Debian and the tools you install.
+Requirements: Android 8.0+ on an arm64 (almost every phone and tablet), 32-bit ARMv7
+(`armeabi-v7a`) or x86_64 device, and a few GB of free space for Debian and the tools you install.
+
+**32-bit ARM devices** get a genuine ARMv7 runtime — Debian 13 armhf, PRoot and its loader built
+for ARMv7, and an ARMv7 compatibility library — not an emulated or renamed arm64 one. Everything
+Debian, apt, Python, git and Node.js do works; the agent CLIs that their publishers only build for
+64-bit CPUs (Claude Code, Codex, OpenCode, Cursor, omp) cannot run there. See
+[docs/ARCHITECTURE-SUPPORT.md](docs/ARCHITECTURE-SUPPORT.md) for the per-architecture matrix.
 
 **Automatic updates:** add the repo to [Obtainium](https://github.com/ImranR98/Obtainium) (badge
 above) and it installs each new release for you.
@@ -146,6 +152,20 @@ py -3 tools/fetch-ca-bundle.py        # the CA bundle, into assets/
 ./gradlew :app:assembleDebug
 ```
 
+`fetch-shell-runtime.py` stages all three ABIs (`armeabi-v7a`, `arm64-v8a`, `x86_64`) and checks
+each binary's ELF architecture and each image's loader as it goes, so a wrong-architecture
+download is a build error rather than a crash on a device. Add `--abi armeabi-v7a` to stage one
+architecture only, for example to build the ARMv7 runtime by itself:
+
+```bash
+py -3 tools/fetch-shell-runtime.py --abi armeabi-v7a
+py -3 tools/build-compat-shim.py --abi armeabi-v7a   # needs pip install ziglang
+./gradlew :app:assembleDebug
+```
+
+The APK is universal: it carries the runtime for every ABI (`Build.SUPPORTED_ABIS` picks the
+matching one at run time), which is why it is around 100 MB.
+
 Release builds are signed when `termfold-release.jks` exists at the repo root and
 `termfold.storePassword` is set in `local.properties` (or `TERMFOLD_STORE_PASSWORD` in the
 environment). Without them the release APK is built unsigned.
@@ -175,7 +195,13 @@ Curious how it works? [How TermFold runs Debian and AI coding agents on Android 
 
 ## Limits
 
-- **Architecture:** the Debian image must match the CPU (arm64 or x86_64); there is no emulation.
+- **Architecture:** the Debian image must match the CPU (arm64, ARMv7 or x86_64); there is no
+  emulation, so a 32-bit ARM device gets the armhf image and never an arm64 one.
+- **32-bit ARM and the agents:** 32-bit ARM devices have a 4 GB address space and several agents
+  are published only as 64-bit native binaries. Claude Code, Codex, OpenCode, Cursor and omp
+  cannot run there (they say so instead of failing obscurely); Gemini CLI, Pi and Qwen — the
+  JavaScript agents — and everything in Debian work normally. Details and sources in
+  [docs/ARCHITECTURE-SUPPORT.md](docs/ARCHITECTURE-SUPPORT.md).
 - **Not a VM.** It is the Android kernel with a translated filesystem: no `systemd`, kernel
   modules or raw sockets. `apt`, compilers, language runtimes and full-screen TUIs all work.
 - **Uninstalling (or clearing the app's data) deletes the Debian environment and your projects**,

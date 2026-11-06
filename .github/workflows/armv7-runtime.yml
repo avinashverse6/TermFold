@@ -13,6 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Stage the ARMv7 runtime
         run: |
           set -eux
@@ -49,7 +54,8 @@ jobs:
           mkfs.vfat /tmp/vfat.img > /dev/null
           sudo mount -o loop,uid=0,gid=0 /tmp/vfat.img /tmp/rf/mnt/vfat
           echo hello-from-armhf > /tmp/link-src.txt
-          sudo cp /tmp/link-src.txt /tmp/rf/mnt/src.txt
+          sudo cp /tmp/link-src.txt /tmp/rf/mnt/vfat/src.txt
+          mount | grep vfat >> $R
           chroot_cmd() { sudo chroot /tmp/rf /usr/bin/qemu-arm-static /bin/bash -c "$1"; }
           {
             echo "== identity"
@@ -60,13 +66,19 @@ jobs:
             chroot_cmd 'dpkg-deb --help 2>&1 | head -2'
             chroot_cmd 'apt-get update 2>&1 | tail -2'
             echo "== hard link refused by the filesystem -> must become a copy"
-            chroot_cmd 'cd /mnt && ln src.txt dst.txt; echo "ln exit=$?"; cmp src.txt dst.txt && echo COPY_OK; stat -c "nlink=%h" dst.txt'
+            chroot_cmd 'cd /mnt/vfat && mount | grep -c vfat; ln src.txt dst.txt; echo "ln exit=$?"; cmp src.txt dst.txt && echo COPY_OK; stat -c "src nlink=%h" src.txt; stat -c "dst nlink=%h" dst.txt'
             echo "== a link the kernel allows is still a link"
-            chroot_cmd 'cd /tmp && ln -f /bin/true t1 && stat -c "nlink=%h" t1'
+            chroot_cmd 'cd /tmp && ln -f /bin/true t1 && stat -c "t1 nlink=%h" t1'
             echo "== apt install in the 32-bit guest"
-            chroot_cmd 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y --no-install-recommends python3 git curl ca-certificates 2>&1 | tail -3; python3 --version; git --version'
+            chroot_cmd 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y --no-install-recommends python3 git curl ca-certificates xz-utils 2>&1 | tail -3; python3 --version; git --version'
             echo "== node 22 armv7l"
-            chroot_cmd 'cd /tmp && curl -fsSLO https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz && sha256sum node-v22.23.3-linux-armv7l.tar.xz && tar xJf node-v22.23.3-linux-armv7l.tar.xz && ./node-v22.23.3-linux-armv7l/bin/node --version && ./node-v22.23.3-linux-armv7l/bin/node -e "console.log(process.arch, process.platform)"'
+            chroot_cmd 'cd /tmp && curl -fsSLO https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz && sha256sum node-v22.23.3-linux-armv7l.tar.xz && tar xJf node-v22.23.3-linux-armv7l.tar.xz && ./node-v22.23.3-linux-armv7l/bin/node --version && ./node-v22.23.3-linux-armv7l/bin/node -e "console.log(process.arch, process.platform)" && ./node-v22.23.3-linux-armv7l/bin/npm --version'
+            echo "== a real npm agent that is pure JavaScript (pi) on 32-bit ARM"
+            chroot_cmd 'cd /tmp && ./node-v22.23.3-linux-armv7l/bin/node ./node-v22.23.3-linux-armv7l/bin/npm install -g @earendil-works/pi-coding-agent 2>&1 | tail -3; PATH=/tmp/node-v22.23.3-linux-armv7l/bin:$PATH pi --version 2>&1 | tail -2'
+            echo "== and a native one must fail clearly, not silently"
+            chroot_cmd 'cd /tmp && PATH=/tmp/node-v22.23.3-linux-armv7l/bin:$PATH npm install -g @anthropic-ai/claude-code 2>&1 | tail -5'
+            echo "== uv armv7 build exists"
+            chroot_cmd 'curl -sSLI -o /dev/null -w "%{http_code}\n" https://github.com/astral-sh/uv/releases/latest/download/uv-armv7-unknown-linux-musleabihf.tar.gz'
           } 2>&1 | tee -a $R
           sudo umount /tmp/rf/mnt/vfat /tmp/rf/sys /tmp/rf/proc || true
 
@@ -82,11 +94,11 @@ jobs:
             python3 tools/fetch-shell-runtime.py
             python3 tools/build-compat-shim.py
             echo "== unit tests"
-            ./gradlew --no-daemon :app:testDebugUnitTest 2>&1 | tail -25
+            bash ./gradlew --no-daemon :app:testDebugUnitTest 2>&1 | tail -25
             echo "== debug apk"
-            ./gradlew --no-daemon :app:assembleDebug 2>&1 | tail -25
+            bash ./gradlew --no-daemon :app:assembleDebug 2>&1 | tail -25
             echo "== release apk"
-            ./gradlew --no-daemon :app:assembleRelease 2>&1 | tail -25
+            bash ./gradlew --no-daemon :app:assembleRelease 2>&1 | tail -25
             echo "== apk contents"
             for apk in app/build/outputs/apk/*/*.apk; do
               echo "-- $apk $(stat -c%s $apk) bytes"
@@ -107,8 +119,10 @@ jobs:
           cp /tmp/build-report.txt build-report.txt 2>/dev/null || echo "no build report" > build-report.txt
           git config user.name arena-agent
           git config user.email agent@arena.ai
-          git add -f app/src/main/jniLibs/armeabi-v7a \
+          git add -f app/src/main/jniLibs \
                      app/src/main/assets/compat-shim-armeabi-v7a.so \
+                     app/src/main/assets/compat-shim-arm64-v8a.so \
+                     app/src/main/assets/compat-shim-x86_64.so \
                      shim-report.txt build-report.txt
           git commit -m "armv7: staged runtime, build and guest reports [skip ci]" || true
           git push || true

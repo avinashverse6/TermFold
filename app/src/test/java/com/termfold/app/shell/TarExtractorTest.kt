@@ -28,7 +28,7 @@ class TarExtractorTest {
     private val isWindows: Boolean =
         System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
 
-    /** The image holds this many entries of each kind. */
+    /** The image holds this many entries of each kind: 2677 regular files and one hard link. */
     private val archiveFiles = 2678
     private val archiveDirs = 415
     private val archiveSymlinks = 176
@@ -83,7 +83,13 @@ class TarExtractorTest {
             FileInputStream(archive).use { input -> TarExtractor.extract(input, destination) }
 
             val visible = destination.walkTopDown().toList()
-            val files = visible.count { it.isFile }
+            // `File.isFile` resolves symlinks, and 147 of this image's 176 symlinks point at
+            // regular files, so counting links as files would report 2825 instead of the 2678
+            // the archive holds (2677 regular entries and one hard link). The link itself is
+            // asserted below; here it is excluded so the number means what the archive says.
+            val files = visible.count { !Files.isSymbolicLink(it.toPath()) && it.isFile }
+            // 415 directory entries, one of which is the image's own "." — that is the
+            // destination itself, which walkTopDown also yields.
             val dirs = visible.count { it.isDirectory }
 
             if (isWindows) {

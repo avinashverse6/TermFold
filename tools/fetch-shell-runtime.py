@@ -46,10 +46,13 @@ PROOT_PKGS = {
         "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb",
     },
     # Termux's 32-bit ARM arch is spelled "arm"; its packages are armeabi-v7a
-    # (softfp-compatible, VFPv3 baseline), which is what the app ships.
+    # (softfp-compatible, VFPv3 baseline), which is what the app ships. They are
+    # a different version from the 64-bit ones on purpose: Termux stopped
+    # building the 32-bit architectures in 2023, so 5.1.107.102 and talloc 2.5.0
+    # are the last arm builds it published, and nothing newer exists for them.
     "armeabi-v7a": {
-        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.92_arm.deb",
-        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.4.3_arm.deb",
+        "proot": f"{TERMUX_POOL}/p/proot/proot_5.1.107.102_arm.deb",
+        "talloc": f"{TERMUX_POOL}/libt/libtalloc/libtalloc_2.5.0_arm.deb",
         "shmem": f"{TERMUX_POOL}/liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb",
     },
     "x86_64": {
@@ -73,6 +76,26 @@ DEB_SHA256 = {
     "armeabi-v7a/proot": None,
     "armeabi-v7a/talloc": None,
     "armeabi-v7a/shmem": None,
+}
+
+# SHA-256 of the four files that end up in app/src/main/jniLibs/<abi>/, keyed "<abi>/<name>".
+# Those files are committed, so a normal build stages nothing: it checks the committed binaries
+# against this table and, only if one is missing or different, goes back to the .deb above. The
+# digest is of the *staged* file, i.e. after the libtalloc.so.2 -> libtalloc.so rewrite, so it is
+# what the APK actually carries and it stays checkable without network access.
+STAGE_SHA256 = {
+    "arm64-v8a/libproot.so": "41b4ae7f8aa2eac38678c97b5bdb6a0503903aafa92eb8b377d377d4103d57cb",
+    "arm64-v8a/libproot-loader.so": "44ef39c1e1a18c09f6e4c4b5d6f8bba82d30596598bd155ec162d05c5122ff04",
+    "arm64-v8a/libtalloc.so": "3c9b207c0a6ea2896b7523e03f55d9ab0d9e88baa115d4c32b84058ff4246fbb",
+    "arm64-v8a/libandroid-shmem.so": "84475798e07c8174dbbfaec70a827fdb02f19ffa69a589380c13e7507fd0e731",
+    "armeabi-v7a/libproot.so": "c8054f34248e9ada0efb2453fe024166077bd3a7948dc745411f24034f02e6cd",
+    "armeabi-v7a/libproot-loader.so": "7c3d9f74b8c8a87c46766d8bbeebeabf24cc4de507690ab04ba7f0190a598500",
+    "armeabi-v7a/libtalloc.so": "a376ac7cbd18e6777657328c701b4979610473811761edc0fdb0ec388d8504af",
+    "armeabi-v7a/libandroid-shmem.so": "ef35602fa6c8bca9081af1594fabeacbd98b6e8921dd6be54484291933b8040f",
+    "x86_64/libproot.so": "1feacb102cd43578d3dd14a3bb5eda368e7d00d1322535665e8ea23821aa21b0",
+    "x86_64/libproot-loader.so": "914564ea1c66f50b38f18cac857fcf814c6b1ab027789178880fca1d530599b3",
+    "x86_64/libtalloc.so": "77be445f4ec245fff9c19e9874ebcf99618244cf48737f5fca938316daaa70da",
+    "x86_64/libandroid-shmem.so": "092926060298acd3778e6239033d7aef1280dcb59aebe021a3719612e6a3465f",
 }
 
 # The official Debian 13 "trixie-slim" rootfs, taken from the debuerreotype artifacts repository
@@ -142,8 +165,15 @@ def ar_members(path):
             yield name, data
 
 
-def deb_file(deb, wanted):
-    """Returns the bytes of one path inside a .deb's data.tar."""
+def deb_file(deb, wanted, versioned=False):
+    """Returns the bytes of one path inside a .deb's data.tar.
+
+    [versioned] also accepts the first member whose name merely starts with [wanted],
+    which is how Termux names a shared library (`lib/libtalloc.so.2.4.3`,
+    `lib/libtalloc.so.2.5.0`): the version in the file name differs per architecture,
+    so the exact name cannot be hard-coded.
+    """
+    found = None
     for name, data in ar_members(deb):
         if name.startswith("data.tar"):
             if name.endswith(".xz"):
@@ -154,9 +184,14 @@ def deb_file(deb, wanted):
             with tarfile.open(fileobj=io.BytesIO(data)) as tf:
                 prefix = "data/data/com.termux/files/usr/"
                 for member in tf.getmembers():
-                    name = member.name.lstrip("./")
-                    if name == prefix + wanted:
+                    path = member.name.lstrip("./")
+                    if path == prefix + wanted:
                         return tf.extractfile(member).read()
+                    if (versioned and found is None and path.startswith(prefix + wanted)
+                            and not path.endswith((".a", ".h", ".la"))):
+                        found = tf.extractfile(member).read()
+    if found is not None:
+        return found
     raise SystemExit(f"{wanted} not found in {deb}")
 
 
@@ -226,12 +261,29 @@ def elf_abi(path):
     return ident[4], struct.unpack_from("<H", ident, 18)[0]
 
 
+STAGED = ("libproot.so", "libproot-loader.so", "libtalloc.so", "libandroid-shmem.so")
+
+
+def staged_matches(abi):
+    """True when every committed binary for [abi] is present and is one of the pinned bytes."""
+    for name in STAGED:
+        path = os.path.join(JNI, abi, name)
+        if not os.path.isfile(path) or sha256_of(path) != STAGE_SHA256.get(f"{abi}/{name}"):
+            return False
+    return True
+
+
 def stage_native(abis, record=False):
     for abi in abis:
         urls = PROOT_PKGS[abi]
-        print(f"[{abi}] native")
         dest = os.path.join(JNI, abi)
         cache = os.path.join(WORK, "debs")
+        print(f"[{abi}] native")
+        # The staged binaries are committed, so the common case needs no network at all: the four
+        # files are checked against STAGE_SHA256 and, when they match, nothing is downloaded.
+        if not record and staged_matches(abi):
+            print("  already staged, digests match STAGE_SHA256")
+            continue
         debs = {
             "proot": download(urls["proot"], os.path.join(cache, f"proot-{abi}.deb")),
             "talloc": download(urls["talloc"], os.path.join(cache, f"talloc-{abi}.deb")),
@@ -264,7 +316,7 @@ def stage_native(abis, record=False):
         with open(bins, "wb") as f:
             f.write(deb_file(debs["proot"], "bin/proot"))
         with open(os.path.join(dest, "libtalloc.so"), "wb") as f:
-            f.write(deb_file(debs["talloc"], "lib/libtalloc.so.2.4.3"))
+            f.write(deb_file(debs["talloc"], "lib/libtalloc.so.2", versioned=True))
         with open(os.path.join(dest, "libandroid-shmem.so"), "wb") as f:
             f.write(deb_file(debs["shmem"], "lib/libandroid-shmem.so"))
         # The loader is statically linked on purpose: it runs before any dynamic
@@ -290,6 +342,15 @@ def stage_native(abis, record=False):
                 raise SystemExit(
                     f"{path} is ELF class {cls} machine {machine}, but {abi} needs "
                     f"class {want_class} machine {want_machine}"
+                )
+        # The bytes that ship must be the ones STAGE_SHA256 describes, whatever the network
+        # returned: a differently repackaged .deb is a build failure here, not a surprise later.
+        for name in STAGED:
+            expected = STAGE_SHA256.get(f"{abi}/{name}")
+            if expected is not None and sha256_of(os.path.join(dest, name)) != expected:
+                raise SystemExit(
+                    f"{abi}/{name} is not the pinned binary (sha256 {sha256_of(os.path.join(dest, name))})"
+                    "\nUpdate STAGE_SHA256 only after checking the new binary by hand."
                 )
 
 

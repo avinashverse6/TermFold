@@ -519,6 +519,45 @@ object AcpInstaller {
             if (manifest.isFile && manifest.readText().contains("\"kind\":\"NPX\"")) manifest.delete()
         }
         marker.writeText(NODE_VERSION)
+        ensureNodeRuns(context, onProgress)
+    }
+
+    /**
+     * Checks that the Node that was just unpacked actually starts, and repairs the one dependency
+     * that is missing on 32-bit ARM.
+     *
+     * Node's linux-armv7l build is linked against `libatomic.so.1`; no Debian base image installs
+     * it, and the dynamic linker then refuses to run node at all — every JavaScript agent would
+     * fail with an error that says nothing about the agent. `libatomic1` is the Debian package
+     * that provides it, it is a few kilobytes, and it is installed only when the linker says so,
+     * so 64-bit devices never take this path.
+     */
+    private fun ensureNodeRuns(context: Context, onProgress: (String) -> Unit) {
+        fun probe(): Pair<Int, String> = runCapture(
+            context,
+            "/opt/node/bin/node -e \"console.log('NODE_OK', process.arch)\"",
+            pathPrefix = NODE_BIN,
+            timeoutSeconds = 60,
+        )
+        val first = probe()
+        if (first.second.contains("NODE_OK")) return
+        if (!first.second.contains("libatomic")) {
+            error(
+                "Node.js cannot start on this device: " +
+                    first.second.trim().lines().lastOrNull().orEmpty()
+            )
+        }
+        onProgress("Installing a Node.js dependency")
+        runCapture(
+            context,
+            "apt-get install -y --no-install-recommends libatomic1",
+            timeoutSeconds = 600,
+        )
+        val second = probe()
+        check(second.second.contains("NODE_OK")) {
+            "Node.js still cannot start after installing libatomic1: " +
+                second.second.trim().lines().lastOrNull().orEmpty()
+        }
     }
 
     /**

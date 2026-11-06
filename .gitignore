@@ -22,3 +22,6 @@ app/src/main/assets/ca-certificates.crt
 *.jks
 *.keystore
 
+
+# Python bytecode from the tools/ scripts.
+__pycache__/

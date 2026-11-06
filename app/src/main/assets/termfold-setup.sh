@@ -71,8 +71,12 @@ apt-get "${APT_OPTS[@]}" install --no-install-recommends \
   build-essential pkg-config \
   python3 python3-pip python3-venv python-is-python3 \
   less nano vim-tiny unzip zip xz-utils bzip2 file procps psmisc \
-  jq ripgrep fd-find tree tzdata \
+  jq ripgrep fd-find tree tzdata libatomic1 \
   || fail "Installing developer tools failed."
+# libatomic1 is not a developer tool: Node's 32-bit ARM build (linux-armv7l) is linked against
+# libatomic.so.1, which the Debian base image does not carry, and without it `node` dies before it
+# runs a line of JavaScript ("error while loading shared libraries: libatomic.so.1"). It is a few
+# kilobytes on every architecture, so it is installed everywhere rather than branched on.
 
 step "Installing Node.js $NODE_VERSION"
 if [ "$(cat /opt/node/.termfold-version 2>/dev/null)" != "$NODE_VERSION" ]; then

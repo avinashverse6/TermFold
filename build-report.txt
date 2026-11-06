@@ -1,0 +1,42 @@
+== java
+openjdk version "25.0.5" 2026-10-20 LTS
+OpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)
+== staging all rootfs images
+yes: standard output: Broken pipe
+curl: (22) The requested URL returned error: 404
+[arm64-v8a] native (ARM64)
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb
+Traceback (most recent call last):
+  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 356, in <module>
+    stage_native(selected)
+    ~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 244, in stage_native
+    proot_deb = download(urls["proot"], os.path.join(cache, f"proot-{abi}.deb"))
+  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 105, in download
+    subprocess.run(["curl", "-fsSL", "--retry", "3", "-o", dest, url], check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['curl', '-fsSL', '--retry', '3', '-o', '/home/runner/work/TermFold/TermFold/.work/debs/proot-arm64-v8a.deb', 'https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb']' returned non-zero exit status 22.
+  /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-arm64-v8a.so (6736 bytes)
+  /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-armeabi-v7a.so (5516 bytes)
+  /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-x86_64.so (6880 bytes)
+== unit tests
+/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 11: ./gradlew: Permission denied
+== debug apk
+/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 13: ./gradlew: Permission denied
+== release apk
+/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 15: ./gradlew: Permission denied
+== apk contents
+stat: cannot statx 'app/build/outputs/apk/*/*.apk': No such file or directory
+-- app/build/outputs/apk/*/*.apk  bytes
+unzip:  cannot find or open app/build/outputs/apk/*/*.apk, app/build/outputs/apk/*/*.apk.zip or app/build/outputs/apk/*/*.apk.ZIP.
+
+No zipfiles found.
+== native ELF inside the armv7 apk
+unzip:  cannot find or open /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk, /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk.zip or /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk.ZIP.
+
+No zipfiles found.
+--- *.apk *
+x/lib/armeabi-v7a/*: cannot open `x/lib/armeabi-v7a/*' (No such file or directory)

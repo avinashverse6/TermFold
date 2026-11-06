@@ -1,0 +1,31 @@
+qemu: /usr/bin/qemu-arm
+/opt/termfold/libtermfold-compat.so
+== identity
+armv7l
+armhf
+ldd (Debian GLIBC 2.41-12+deb13u4) 2.41
+== shim loads under every guest program (ld.so.preload)
+/bin/bash: line 1: python3: command not found
+/bin/bash: line 1: git: command not found
+Usage: dpkg-deb [<option>...] <command>
+
+Fetched 9742 kB in 5s (2091 kB/s)
+Reading package lists...
+== hard link refused by the filesystem -> must become a copy
+ln exit=0
+COPY_OK
+nlink=2
+== a link the kernel allows is still a link
+nlink=2
+== apt install in the 32-bit guest
+0 added, 0 removed; done.
+Running hooks in /etc/ca-certificates/update.d...
+done.
+Python 3.13.5
+git version 2.47.3
+== node 22 armv7l
+590a2768199bdd0b848648a81cd7f07f88a5ceb27949f0c70d5e6652c3eaca69  node-v22.23.3-linux-armv7l.tar.xz
+tar (child): xz: Cannot exec: No such file or directory
+tar (child): Error is not recoverable: exiting now
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now

@@ -1,8 +1,9 @@
 package com.termfold.app.acp
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
+import com.termfold.app.shell.Arch
+import com.termfold.app.shell.Architecture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -47,7 +48,7 @@ object AcpRegistry {
         val cache = cacheFile(context)
         val fresh = cache.isFile && System.currentTimeMillis() - cache.lastModified() < MAX_AGE_MS
         if (!forceRefresh && fresh) {
-            parse(cache.readText())?.let { parsed ->
+            parse(context, cache.readText())?.let { parsed ->
                 memoryCache = parsed
                 return parsed
             }
@@ -65,7 +66,7 @@ object AcpRegistry {
         }
         if (body.isNullOrBlank()) {
             // Offline, or the CDN is unreachable: stale cache beats nothing.
-            if (cache.isFile) parse(cache.readText())?.let { parsed ->
+            if (cache.isFile) parse(context, cache.readText())?.let { parsed ->
                 memoryCache = parsed
                 return parsed
             }
@@ -76,7 +77,7 @@ object AcpRegistry {
             cache.parentFile?.mkdirs()
             cache.writeText(body)
         }
-        return parse(body)?.also { memoryCache = it } ?: emptyList()
+        return parse(context, body)?.also { memoryCache = it } ?: emptyList()
     }
 
     fun cached(context: Context, agentId: String): AcpAgent? =
@@ -99,17 +100,31 @@ object AcpRegistry {
     // which assumes a 48-bit address space and aborts on Android kernels (39-bit). Its agy CLI
     // works in a Shell session.
 
-    private fun parse(body: String): List<AcpAgent>? = runCatching {
+    private fun parse(context: Context, body: String): List<AcpAgent>? = runCatching {
+        val arch = Architecture.current(context)
+        // Rebuilt from scratch every time, so an agent that a cached registry made unavailable
+        // does not keep claiming to be unavailable after an update.
+        droppedForCpu.clear()
         val root = JSONObject(body)
         val agents = root.optJSONArray("agents") ?: return emptyList()
         val fromRegistry = List(agents.length()) { index ->
-            runCatching { fromJson(agents.getJSONObject(index)) }.getOrNull()
+            runCatching { fromJson(agents.getJSONObject(index), arch) }.getOrNull()
         }.filterNotNull()
-        (fromRegistry + extraAgents())
+        (fromRegistry + extraAgents(arch))
             .filter { it.id !in UNSUPPORTED }
             .distinctBy { it.id }
             .sortedBy { it.name.lowercase() }
     }.onFailure { Log.w(TAG, "Could not parse the registry", it) }.getOrNull()
+
+    /**
+     * Ids the registry lists but that publish no build for this device's CPU, so they were
+     * dropped while parsing. The session screen explains that instead of claiming the registry is
+     * offline — on 32-bit ARM that is the difference between "your network is down" and "this
+     * agent only ships 64-bit binaries".
+     */
+    private val droppedForCpu = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun unsupportedOnThisCpu(): Set<String> = droppedForCpu.toSet()
 
     /**
      * Agents that speak ACP but are not in the registry.
@@ -118,8 +133,13 @@ object AcpRegistry {
      * [AcpArchives.extract] lands at [AcpAgent.cmd] — and runs as an ACP server via `omp acp`.
      * The npm package is not used because it needs a newer Bun than the guest has.
      */
-    private fun extraAgents(): List<AcpAgent> {
-        val arch = if (Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true) "x64" else "arm64"
+    private fun extraAgents(arch: Arch?): List<AcpAgent> {
+        // omp publishes linux-x64 and linux-arm64 only (checked against its v18 release assets),
+        // so on 32-bit ARM it is reported as unavailable rather than downloaded and failing.
+        val omp = arch?.omp ?: run {
+            droppedForCpu.add("omp")
+            return emptyList()
+        }
         return listOf(
             AcpAgent(
                 id = "omp",
@@ -131,7 +151,7 @@ object AcpRegistry {
                 iconUrl = "",
                 repository = "https://github.com/can1357/oh-my-pi",
                 kind = AcpAgent.Kind.BINARY,
-                archiveUrl = "https://github.com/can1357/oh-my-pi/releases/download/v$OMP_VERSION/omp-linux-$arch",
+                archiveUrl = "https://github.com/can1357/oh-my-pi/releases/download/v$OMP_VERSION/omp-linux-$omp",
                 archiveSha256 = null,
                 cmd = "./omp",
                 args = listOf("acp"),
@@ -143,21 +163,23 @@ object AcpRegistry {
 
     private const val OMP_VERSION = "18.3.0"
 
-    private fun fromJson(agent: JSONObject): AcpAgent {
+    private fun fromJson(agent: JSONObject, arch: Arch?): AcpAgent {
         val dist = agent.optJSONObject("distribution")
         val binary = dist?.optJSONObject("binary")
         val npx = dist?.optJSONObject("npx")
         val uvx = dist?.optJSONObject("uvx")
 
         if (binary != null) {
-            val platform = when {
-                Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "linux-x86_64"
-                else -> "linux-aarch64"
+            // Only the exact ABI is usable: the guest has no user-mode emulation, so an x86_64
+            // binary would die with a confusing exec failure on an ARM phone and vice versa.
+            // Agents without a build for this device are simply not offered — and are recorded
+            // in [droppedForCpu] so the session screen explains it instead of blaming the
+            // network.
+            val platform = arch?.registry
+            val entry = platform?.let { binary.optJSONObject(it) } ?: run {
+                droppedForCpu.add(agent.optString("id"))
+                error("no linux binary distribution for this CPU")
             }
-            // Only the exact ABI is usable: the guest has no user-mode emulation, so an
-            // x86_64 binary would die with a confusing exec failure on an arm64 phone and
-            // vice versa. Agents without a build for this device are simply not offered.
-            val entry = requireNotNull(binary.optJSONObject(platform)) { "no $platform distribution" }
             return AcpAgent(
                 id = agent.getString("id"),
                 name = agent.getString("name"),

@@ -16,7 +16,14 @@ object ShellConfig {
     /** Root of everything the bundled environment owns, inside the app's private storage. */
     const val ROOT_DIR = "linux"
 
-    /** The Debian 13 root filesystem, extracted here and never written anywhere else. */
+    /**
+     * The Debian 13 root filesystem, extracted here and never written anywhere else.
+     *
+     * Installs made before 32-bit ARM support all use this name, and keep it (see
+     * [ShellPaths.rootfsDir]): a rootfs of a *different* architecture is the only case that gets
+     * a name with the architecture appended, so upgrading can never unpack over — and so wipe —
+     * a working install.
+     */
     const val ROOTFS_DIR = "rootfs"
 
     /** Where a new rootfs is unpacked before it replaces the current one. */
@@ -41,6 +48,10 @@ object ShellConfig {
      */
     const val NATIVE_LOADER = "libproot-loader.so"
 
+    /** The two libraries PRoot links against; both are staged beside it by the fetch script. */
+    const val NATIVE_TALLOC = "libtalloc.so"
+    const val NATIVE_SHMEM = "libandroid-shmem.so"
+
     /** In-guest home directory for the root user. */
     const val GUEST_HOME = "/root"
 
@@ -50,12 +61,7 @@ object ShellConfig {
     /** Bundled rootfs archives, one per ABI, stored with a neutral extension. */
     fun rootfsAsset(abi: String): String = "debian-$abi.bin"
 
-    /**
-     * A rootfs must match the host CPU: PRoot only runs foreign binaries when a QEMU user-mode
-     * binary is supplied, and none is bundled.
-     */
-    fun rootfsAbi(abi: String): String? = when (abi) {
-        "arm64-v8a", "x86_64" -> abi
-        else -> null
-    }
+    // Which architectures exist, and which of them this APK can actually run, is decided in
+    // [Architecture]. A rootfs must match the host CPU: PRoot only runs foreign binaries when a
+    // QEMU user-mode binary is supplied, and none is bundled.
 }

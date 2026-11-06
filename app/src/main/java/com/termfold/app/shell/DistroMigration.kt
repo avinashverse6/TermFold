@@ -74,8 +74,11 @@ object DistroMigration {
         synchronized(ShellRuntime) { migrateLocked(context, onProgress) }
 
     private fun migrateLocked(context: Context, onProgress: (String, Float) -> Unit) {
-        val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-        val supported = ShellConfig.rootfsAbi(abi) ?: throw ShellRuntime.UnsupportedCpu(abi)
+        val supported = Architecture.supported(context)?.abi
+            ?: throw ShellRuntime.UnsupportedCpu(
+                Architecture.current(context)?.abi
+                    ?: android.os.Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
+            )
         check(ShellRuntime.isLegacyUbuntu(context)) { "This environment is not an Ubuntu install." }
 
         val rootfs = ShellPaths.rootfsDir(context)

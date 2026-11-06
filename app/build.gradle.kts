@@ -6,6 +6,24 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+/**
+ * Which ABIs the APK carries.
+ *
+ * Unset — the normal build — means "whatever the bundled natives provide": every directory under
+ * `app/src/main/jniLibs` (see tools/fetch-shell-runtime.py) plus the ABIs the Termux terminal AARs
+ * ship. That is the universal APK, and it is what existing releases and the in-app updater expect.
+ *
+ * Set it to build for one architecture, which is how CI produces the smaller per-ABI artifacts:
+ *
+ *     ./gradlew :app:assembleRelease -Ptermfold.abis=armeabi-v7a
+ */
+val abiFilter: Set<String>? = (findProperty("termfold.abis") as String?)
+    ?.split(',')
+    ?.map { it.trim() }
+    ?.filter { it.isNotEmpty() }
+    ?.toSet()
+    ?.takeIf { it.isNotEmpty() }
+
 android {
     namespace = "com.termfold.app"
     compileSdk = 36
@@ -20,6 +38,10 @@ android {
         targetSdk = 28
         versionCode = 18
         versionName = "2.3"
+
+        // Only when asked for: see abiFilter above. The union is kept, so an ABI the AARs bring
+        // is not dropped silently.
+        abiFilter?.let { wanted -> ndk { abiFilters += wanted } }
     }
 
     androidResources {

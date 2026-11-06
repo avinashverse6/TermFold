@@ -2,6 +2,7 @@ package com.termfold.app.acp
 
 import android.content.Context
 import android.util.Log
+import com.termfold.app.shell.Architecture
 import com.termfold.app.shell.ProotCommand
 import com.termfold.app.shell.ShellPaths
 import com.termfold.app.shell.TarExtractor
@@ -292,10 +293,14 @@ object AcpInstaller {
         val bunDir = File(ShellPaths.rootfsDir(context), "opt/bun")
         if (File(bunDir, "bun").isFile) return
 
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x64"
-            else -> "aarch64"
-        }
+        // Bun publishes linux-x64 and linux-aarch64 only (its v1.4 release assets carry no 32-bit
+        // ARM build), so there is no honest mapping for armeabi-v7a. The agent that needed it
+        // reports this instead of running a binary that cannot load.
+        val arch = Architecture.current(context)?.bun
+            ?: error(
+                "This agent needs the Bun runtime, and Bun publishes no build for this device's " +
+                    "CPU. Shell, apt, Python, Node.js and the other agents are unaffected.",
+            )
         val url = "https://github.com/oven-sh/bun/releases/download/bun-v1.1.34/bun-linux-$arch.zip"
         onProgress("Downloading Bun runtime")
         val archive = download(url, context.cacheDir, "bun")
@@ -349,11 +354,12 @@ object AcpInstaller {
         if (File(uvDir, "uvx").isFile) return
 
         onProgress("Downloading uv runtime")
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x86_64"
-            else -> "aarch64"
-        }
-        val url = "https://github.com/astral-sh/uv/releases/latest/download/uv-$arch-unknown-linux-musl.tar.gz"
+        // uv names its assets per target, and the 32-bit ARM one is musleabihf rather than musl,
+        // so the whole asset name comes from Arch; it publishes none for a CPU it does not
+        // support, and then this agent cannot be installed.
+        val asset = Architecture.current(context)?.uv
+            ?: error("uv publishes no build for this device's CPU.")
+        val url = "https://github.com/astral-sh/uv/releases/latest/download/$asset.tar.gz"
         val archive = download(url, context.cacheDir, "uv")
         onProgress("Unpacking uv")
         uvDir.deleteRecursively()
@@ -362,7 +368,7 @@ object AcpInstaller {
         AcpArchives.extract(archive, staging, null)
         archive.delete()
 
-        // The tarball unpacks as uv-<arch>-unknown-linux-musl/{uv,uvx} — normalise to /opt/uv.
+        // The tarball unpacks as <asset>/{uv,uvx} — normalise to /opt/uv.
         val unpackedBin = staging.walkTopDown().firstOrNull { it.isFile && it.name == "uvx" }
             ?: error("uv archive did not contain the uvx binary")
         uvDir.mkdirs()
@@ -468,10 +474,10 @@ object AcpInstaller {
         if (File(nodeDir, "bin/npx").isFile && marker.isFile && marker.readText() == NODE_VERSION) return
 
         onProgress("Installing Node.js (one-time)")
-        val arch = when {
-            android.os.Build.SUPPORTED_ABIS.firstOrNull()?.contains("x86") == true -> "x64"
-            else -> "arm64"
-        }
+        // Node calls 32-bit ARM "armv7l" and publishes a binary for it with every v22 release, so
+        // the same tarball-plus-SHASUMS path works on all three architectures.
+        val arch = Architecture.current(context)?.node
+            ?: error("No Node.js build for this device's CPU.")
         val url = "https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$arch.tar.gz"
         val archive = download(url, context.cacheDir, "node")
         // Checked against the release's published SHA-256 list before anything is unpacked.
@@ -568,7 +574,11 @@ object AcpInstaller {
     private val NATIVE_PROBE = """
         const fs = require('fs'), path = require('path');
         const nm = path.join(process.argv[2], 'node_modules');
-        const arch = process.arch;
+        // Exact platform suffixes, not substring matches: on 32-bit ARM process.arch is 'arm',
+        // which would otherwise also match packages such as ...-linux-arm64.
+        const platforms = process.arch === 'arm'
+          ? ['linux-arm', 'linux-armv7l', 'linux-armhf']
+          : ['linux-' + process.arch];
         const wanted = new Map(), installed = new Set();
         function scan(dir, scope) {
           let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -582,7 +592,7 @@ object AcpInstaller {
               installed.add(id);
               for (const [n, v] of Object.entries(pkg.optionalDependencies || {})) {
                 const l = n.toLowerCase();
-                if (l.includes('linux') && l.includes(arch) && !l.includes('musl')) wanted.set(n, v);
+                if (!l.includes('musl') && platforms.some(p => l.endsWith(p))) wanted.set(n, v);
               }
             } catch {}
             scan(path.join(p, 'node_modules'), null);

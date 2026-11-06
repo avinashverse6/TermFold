@@ -14,7 +14,7 @@
   <a href="https://github.com/Bibarud/TermFold/releases/latest"><img alt="Download APK" src="https://img.shields.io/github/v/release/Bibarud/TermFold?label=Download%20APK&color=ff7a2e"></a>
   <a href="https://bibarud.github.io/TermFold/"><img alt="Website" src="https://img.shields.io/badge/website-bibarud.github.io%2FTermFold-ff7a2e"></a>
   <img alt="Android 8+" src="https://img.shields.io/badge/Android-8.0%2B-3ddc84">
-  <img alt="arm64 and x86_64" src="https://img.shields.io/badge/ABI-arm64%20%7C%20x86__64-555">
+  <img alt="arm64, armv7 and x86_64" src="https://img.shields.io/badge/ABI-arm64%20%7C%20armv7%20%7C%20x86__64-555">
   <a href="LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
 </p>
 
@@ -106,6 +106,12 @@ app, proot scripts and broken package installs. TermFold is one app that does it
 Requirements: Android 8.0+ on an arm64 (almost every phone and tablet) or x86_64 device, and a
 few GB of free space for Debian and the tools you install.
 
+**32-bit ARM (`armeabi-v7a`):** the Debian image, the terminal and the app all build for it, but
+this repository does not carry the 32-bit PRoot binaries yet, so a 32-bit build would install and
+then refuse to start a session. See [docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md) for what is in
+place, the ARMv7 + Thumb-2 + VFPv3 baseline the Debian image needs, and the one command that
+finishes the port.
+
 **Automatic updates:** add the repo to [Obtainium](https://github.com/ImranR98/Obtainium) (badge
 above) and it installs each new release for you.
 
@@ -146,6 +152,15 @@ py -3 tools/fetch-ca-bundle.py        # the CA bundle, into assets/
 ./gradlew :app:assembleDebug
 ```
 
+The script stages whatever architectures its package tables describe; `--abi armeabi-v7a` limits it
+to one. APKs carry the ABIs that are present, so a checkout without the 32-bit runtime simply
+produces the same arm64 + x86_64 APKs as before. A single-architecture APK:
+
+```bash
+./gradlew :app:assembleRelease -Ptermfold.abis=armeabi-v7a
+py -3 tools/check-apk-abi.py app/build/outputs/apk/release/TermFold-release.apk --require armeabi-v7a
+```
+
 Release builds are signed when `termfold-release.jks` exists at the repo root and
 `termfold.storePassword` is set in `local.properties` (or `TERMFOLD_STORE_PASSWORD` in the
 environment). Without them the release APK is built unsigned.
@@ -175,7 +190,12 @@ Curious how it works? [How TermFold runs Debian and AI coding agents on Android 
 
 ## Limits
 
-- **Architecture:** the Debian image must match the CPU (arm64 or x86_64); there is no emulation.
+- **Architecture:** the Debian image must match the CPU (arm64, armv7 or x86_64); there is no
+  emulation. 32-bit ARM needs ARMv7 + Thumb-2 + VFPv3-D16, and its runtime binaries still have to
+  be fetched ([docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md)).
+- **Agents on 32-bit ARM:** Claude Code, Codex, OpenCode, Cursor, Devin and omp publish 64-bit
+  binaries only, so they are not offered there; Gemini CLI, Pi, Qwen, and everything from `apt`
+  work. The full matrix is in the same document.
 - **Not a VM.** It is the Android kernel with a translated filesystem: no `systemd`, kernel
   modules or raw sockets. `apt`, compilers, language runtimes and full-screen TUIs all work.
 - **Uninstalling (or clearing the app's data) deletes the Debian environment and your projects**,

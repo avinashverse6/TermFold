@@ -167,6 +167,18 @@ fun AgentSessionScreen(
                 if (agentId in com.termfold.app.acp.AcpRegistry.UNSUPPORTED) {
                     PanelTitle(stringResource(R.string.acp_agent_unsupported_title))
                     PanelBody(stringResource(R.string.acp_antigravity_unsupported))
+                } else if (agentId in com.termfold.app.acp.AcpRegistry.unsupportedOnThisCpu()) {
+                    // The registry lists this agent, but it publishes no binary for this CPU —
+                    // on 32-bit ARM that covers Claude Code, Codex, OpenCode, Cursor, Devin and
+                    // omp. Saying so is better than "the registry is offline" or a download that
+                    // cannot run.
+                    PanelTitle(stringResource(R.string.acp_agent_unsupported_title))
+                    PanelBody(
+                        stringResource(
+                            R.string.acp_agent_cpu_unsupported,
+                            com.termfold.app.shell.Architecture.current(context)?.abi.orEmpty(),
+                        )
+                    )
                 } else if (registryFailed) {
                     PanelTitle(stringResource(R.string.acp_agent_unavailable))
                     PanelBody(stringResource(R.string.acp_registry_offline))

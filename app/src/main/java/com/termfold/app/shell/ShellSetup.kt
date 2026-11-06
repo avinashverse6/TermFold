@@ -39,6 +39,15 @@ object ShellSetup {
         "qwen" to "@qwen-code/qwen-code",
     )
 
+    /**
+     * CLI commands whose publisher ships no 32-bit ARM build, so on an armeabi-v7a device the
+     * stand-in says so instead of letting npm fail with a wall of noise. Checked on 2026-11-06
+     * against the npm registry: Claude Code 2.1.318 and Codex 0.167.0 publish per-platform
+     * binaries for linux-x64 and linux-arm64 only, and OpenCode 1.19.5 declares
+     * `cpu: ["arm64","x64"]`, which makes npm refuse the install outright.
+     */
+    private val SIXTY_FOUR_BIT_ONLY = setOf("claude", "codex", "opencode")
+
     fun isDone(context: Context): Boolean = File(ShellPaths.rootfsDir(context), MARKER).isFile
 
     /**
@@ -152,11 +161,27 @@ object ShellSetup {
      * result actually runs (npm silently skips a failed platform-specific optional dependency,
      * which leaves a binary that cannot start) and retries once, then execs the real thing.
      */
-    private fun standIn(bin: String, pkg: String): String = """
+    private fun standIn(bin: String, pkg: String): String {
+        // Nothing is faked for a CPU the publisher does not support: the command explains itself
+        // and exits, and every other tool in the guest is untouched.
+        val guard = if (bin in SIXTY_FOUR_BIT_ONLY) {
+            """
+            |case "${'$'}(uname -m)" in
+            |  armv7l|armv7)
+            |    echo "$bin publishes no 32-bit ARM build; it runs on arm64 and x86_64 devices only." >&2
+            |    echo "Shell, apt, python3, git, node and the other agents are unaffected." >&2
+            |    exit 1 ;;
+            |esac
+            """.trimMargin()
+        } else {
+            ""
+        }
+        return """
         |#!/bin/sh
         |# TermFold: installs $pkg the first time `$bin` is run, then gets out of the way.
         |# npm puts the real $bin in /opt/node/bin, ahead of this file on PATH.
         |real=/opt/node/bin/$bin
+        |$guard
         |if [ ! -x "${'$'}real" ]; then
         |  if [ ! -x /opt/node/bin/npm ]; then
         |    echo "Node.js is not set up yet. Run: termfold-setup" >&2
@@ -171,6 +196,7 @@ object ShellSetup {
         |fi
         |exec "${'$'}real" "${'$'}@"
         |""".trimMargin()
+    }
 
     private fun writeExecutable(file: File, content: String) {
         if (file.isFile && file.readText() == content) return

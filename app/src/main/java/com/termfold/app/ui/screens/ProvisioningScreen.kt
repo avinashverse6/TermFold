@@ -279,13 +279,16 @@ data class ShellStatus(
  * on disk is not included, because measuring it means visiting every file; see [shellSizeText].
  */
 fun shellStatus(context: Context, sizeText: String = ""): ShellStatus {
-    val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-    val supported = com.termfold.app.shell.ShellConfig.rootfsAbi(abi) != null
+    // What the process actually runs as, and whether this APK carries the runtime for it; see
+    // Architecture. Not Build.SUPPORTED_ABIS[0], which on a 64-bit device running a 32-bit-only
+    // build still names the 64-bit ABI.
+    val arch = com.termfold.app.shell.Architecture.current(context)
+    val supported = com.termfold.app.shell.Architecture.supported(context) != null
     val ready = runCatching { ShellRuntime.isReady(context) }.getOrDefault(false)
     return ShellStatus(
         ready = ready,
         flavour = ShellRuntime.FLAVOUR,
-        architecture = abi,
+        architecture = arch?.abi ?: Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
         sizeText = sizeText,
         supported = supported,
         legacyUbuntu = runCatching { ShellRuntime.isLegacyUbuntu(context) }.getOrDefault(false),

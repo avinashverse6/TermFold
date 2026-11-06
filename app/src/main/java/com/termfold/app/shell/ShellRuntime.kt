@@ -3,6 +3,7 @@ package com.termfold.app.shell
 import android.content.Context
 import android.content.res.AssetManager
 import android.net.ConnectivityManager
+import android.os.Build
 import android.util.Log
 import java.io.File
 /**
@@ -18,9 +19,11 @@ object ShellRuntime {
     private const val TAG = "ShellRuntime"
 
     /**
-     * Written into the rootfs once it is unpacked. Bumped when the bundled image changes, so a
-     * future release can tell it must re-unpack. Anything that does not start with
-     * [DEBIAN_MARKER_PREFIX] is an older Ubuntu image, which [DistroMigration] moves to Debian.
+     * Written into the rootfs once it is unpacked, followed by the ABI it was unpacked for, so
+     * that a 32-bit and a 64-bit install on the same device stay distinguishable. Bumped when the
+     * bundled image changes, so a future release can tell it must re-unpack. Anything that does
+     * not start with [DEBIAN_MARKER_PREFIX] is an older Ubuntu image, which [DistroMigration]
+     * moves to Debian.
      */
     private const val MARKER = "debian-13"
     internal const val DEBIAN_MARKER_PREFIX = "debian"
@@ -38,9 +41,15 @@ object ShellRuntime {
      */
     private const val CA_BUNDLE = "ca-certificates.crt"
 
-    /** Thrown when the host CPU has no matching Linux image. */
+    /**
+     * Thrown when this build carries no runtime for the host CPU — an architecture the app does
+     * not ship, or a build made without `tools/fetch-shell-runtime.py` for it. Nothing is faked
+     * in that case: the UI says so and no session is started.
+     */
     class UnsupportedCpu(abi: String) :
-        IllegalStateException("No bundled Linux image for CPU architecture \"$abi\".")
+        IllegalStateException(
+            "This build of TermFold has no Linux runtime for this device's CPU (\"$abi\")."
+        )
 
     /**
      * Makes the environment ready to run, doing the expensive work at most once.
@@ -49,9 +58,11 @@ object ShellRuntime {
      */
     @Synchronized
     fun provision(context: Context, onProgress: (String, Float) -> Unit = { _, _ -> }) {
-        // The architecture of the running process, which is the one the rootfs must match.
-        val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-        val supported = ShellConfig.rootfsAbi(abi) ?: throw UnsupportedCpu(abi)
+        // The architecture of the running process, which is the one the rootfs must match. This
+        // is not Build.SUPPORTED_ABIS[0]: on a 64-bit device running a 32-bit-only build the
+        // first entry is still the 64-bit ABI, while everything native here is 32-bit.
+        val supported = Architecture.supported(context)?.abi
+            ?: throw UnsupportedCpu(Architecture.current(context)?.abi ?: Build.SUPPORTED_ABIS.firstOrNull().orEmpty())
 
         // A migration that was cut off (the app was killed half way) is finished before anything
         // else looks at the rootfs, because until then there may be no rootfs at all.
@@ -111,8 +122,9 @@ object ShellRuntime {
         ShellSetup.install(context, rootfs)
         // A fresh image has no fake links; this just records that.
         GuestCompat.migrateFakeLinks(rootfs)
-        // Last, so an image that is cut off half way is finished again rather than trusted.
-        File(rootfs, ".termfold-rootfs").writeText(MARKER)
+        // Last, so an image that is cut off half way is finished again rather than trusted. The
+        // ABI follows the marker so a later start can tell which architecture this tree is.
+        File(rootfs, ".termfold-rootfs").writeText("$MARKER $abi")
     }
 
     /**

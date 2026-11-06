@@ -131,6 +131,10 @@ Google Play.
    libraries to be aligned for 16 KB pages. Checked on 2026-10-01: all PRoot libraries and the arm64
    compatibility shim are already aligned (16 KB or 64 KB). **The x86_64 compatibility shim is aligned
    to 4 KB and must be rebuilt** (`tools/build-compat-shim.py`).
+   This requirement is about **64-bit** libraries only: the armeabi-v7a runtime runs on 4 KB-page
+   devices and is not affected. Its compatibility shim is nonetheless emitted with 64 KB segment
+   alignment (`readelf -l`: `Align 0x10000`), which satisfies either page size. See
+   [ARMHF-SUPPORT.md](ARMHF-SUPPORT.md).
 5. **Keep a fallback ready.** Keep the code that starts guest programs behind one place, so that if
    Android closes the loader route, option D or C can replace it.
 

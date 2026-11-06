@@ -76,9 +76,12 @@ apt-get "${APT_OPTS[@]}" install --no-install-recommends \
 
 step "Installing Node.js $NODE_VERSION"
 if [ "$(cat /opt/node/.termfold-version 2>/dev/null)" != "$NODE_VERSION" ]; then
+  # Node's names, not the kernel's: 32-bit ARM is armv7l there (and only there); Arch.kt
+  # in the app maps the same three.
   case "$(uname -m)" in
     x86_64) arch=x64 ;;
     aarch64|arm64) arch=arm64 ;;
+    armv7l|armv7) arch=armv7l ;;
     *) fail "No Node.js build for $(uname -m)." ;;
   esac
   url="https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$arch.tar.xz"

@@ -5,5 +5,99 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - run: echo hello && uname -a
+      - uses: actions/checkout@v4
+
+      - name: Termux arm pool
+        run: |
+          set -x
+          BASE=https://packages.termux.dev/apt/termux-main/pool/main
+          mkdir -p /tmp/debs
+          for u in \
+            p/proot/proot_5.1.107.92_arm.deb \
+            libt/libtalloc/libtalloc_2.4.3_arm.deb \
+            liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb ; do
+            f=/tmp/debs/$(basename $u)
+            code=$(curl -sSL -o "$f" -w '%{http_code}' "$BASE/$u" || echo ERR)
+            echo "STATUS $code $u $(stat -c%s "$f" 2>/dev/null)"
+            file "$f"
+          done
+          echo "--- deb contents"
+          for f in /tmp/debs/*.deb; do echo "== $f"; ar t "$f"; done
+
+      - name: Arm packages index
+        run: |
+          for d in stable main; do
+            u="https://packages.termux.dev/apt/termux-main/dists/$d/main/binary-arm/Packages.xz"
+            code=$(curl -sSL -o /tmp/P.xz -w '%{http_code}' "$u" || echo ERR)
+            echo "STATUS $code $u $(stat -c%s /tmp/P.xz 2>/dev/null)"
+            case "$code" in 200) xz -dc /tmp/P.xz | grep -A3 -E '^Package: (proot|libtalloc|libandroid-shmem)$' | head -40;; esac
+          done
+
+      - name: Inspect proot arm ELF
+        run: |
+          set -x
+          pip install --quiet pyelftools
+          python3 - <<'EOF'
+          import glob, tarfile, io, lzma, gzip, os, subprocess
+          def ar_members(path):
+              with open(path,'rb') as f:
+                  assert f.read(8)==b'!<arch>\n'
+                  while True:
+                      h=f.read(60)
+                      if len(h)<60: return
+                      name=h[0:16].decode().strip().rstrip('/')
+                      size=int(h[48:58].decode().strip())
+                      data=f.read(size)
+                      if size%2: f.read(1)
+                      yield name,data
+          for deb in sorted(glob.glob('/tmp/debs/*.deb')):
+              print('=====',deb)
+              for name,data in ar_members(deb):
+                  if name.startswith('data.tar'):
+                      if name.endswith('.xz'): data=lzma.decompress(data)
+                      elif name.endswith('.gz'): data=gzip.decompress(data)
+                      tf=tarfile.open(fileobj=io.BytesIO(data))
+                      for m in tf.getmembers():
+                          print('   ',m.name, m.size, oct(m.mode))
+          EOF
+          mkdir -p /tmp/x
+          cd /tmp/x
+          for f in /tmp/debs/*.deb; do ar x "$f"; done
+          for t in data.tar.*; do tar xf "$t"; done
+          find . -type f | while read f; do echo "--- $f"; file "$f"; done
+
+      - name: Rootfs armhf + chroot
+        run: |
+          set -ex
+          URL="https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/7978fc031d5b52b4496cff0bafb95b9bc828c79a/trixie/slim/oci/blobs/rootfs.tar.gz"
+          curl -fsSL -o /tmp/rootfs.tar.gz "$URL"
+          ls -l /tmp/rootfs.tar.gz
+          sha256sum /tmp/rootfs.tar.gz
+          tar tzf /tmp/rootfs.tar.gz | head -5
+          mkdir -p /tmp/rf && tar xzf /tmp/rootfs.tar.gz -C /tmp/rf
+          file /tmp/rf/usr/lib/arm-linux-gnueabihf/libc.so.6 /tmp/rf/bin/bash
+          cat /tmp/rf/etc/debian_version; cat /tmp/rf/etc/os-release
+          cat /tmp/rf/etc/apt/sources.list.d/* 2>/dev/null || cat /tmp/rf/etc/apt/sources.list
+          ls /tmp/rf/etc/ld.so.preload 2>/dev/null || echo "no ld.so.preload"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support
+          sudo cp /etc/resolv.conf /tmp/rf/etc/resolv.conf
+          sudo mount -t proc proc /tmp/rf/proc || true
+          sudo chroot /tmp/rf /bin/bash -c 'export DEBIAN_FRONTEND=noninteractive; uname -m; dpkg --print-architecture; apt-get update 2>&1 | tail -3; apt-get install -y --no-install-recommends ca-certificates python3 git nodejs npm 2>&1 | tail -8; python3 --version; git --version; node --version; npm --version; apt-cache policy nodejs | head -4'
+
+      - name: Node armv7l availability
+        run: |
+          set -x
+          for v in v22.23.3; do
+            for base in https://nodejs.org/dist https://unofficial-builds.nodejs.org/download/release; do
+              for ext in tar.xz tar.gz; do
+                u="$base/$v/node-$v-linux-armv7l.$ext"
+                echo "STATUS $(curl -sS -o /dev/null -w '%{http_code}' -I "$u") $u"
+              done
+              u="$base/$v/SHASUMS256.txt"
+              echo "--- $u"
+              curl -sSL "$u" | grep -E 'armv7l|armv6l' | head -5 || echo "no armv7l line"
+            done
+          done

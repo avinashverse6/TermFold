@@ -1,42 +1,197 @@
 == java
-openjdk version "25.0.5" 2026-10-20 LTS
-OpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)
+openjdk version "21.0.13" 2026-10-20 LTS
+OpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)
 == staging all rootfs images
 yes: standard output: Broken pipe
-curl: (22) The requested URL returned error: 404
 [arm64-v8a] native (ARM64)
-  downloading https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb
-Traceback (most recent call last):
-  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 356, in <module>
-    stage_native(selected)
-    ~~~~~~~~~~~~^^^^^^^^^^
-  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 244, in stage_native
-    proot_deb = download(urls["proot"], os.path.join(cache, f"proot-{abi}.deb"))
-  File "/home/runner/work/TermFold/TermFold/tools/fetch-shell-runtime.py", line 105, in download
-    subprocess.run(["curl", "-fsSL", "--retry", "3", "-o", dest, url], check=True)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.14/subprocess.py", line 578, in run
-    raise CalledProcessError(retcode, process.args,
-                             output=stdout, stderr=stderr)
-subprocess.CalledProcessError: Command '['curl', '-fsSL', '--retry', '3', '-o', '/home/runner/work/TermFold/TermFold/.work/debs/proot-arm64-v8a.deb', 'https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.92_aarch64.deb']' returned non-zero exit status 22.
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.102_aarch64.deb
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_2.5.0_aarch64.deb
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb
+  patched DT_NEEDED libtalloc.so.2 -> libtalloc.so
+[armeabi-v7a] native (ARMv7 (32-bit ARM))
+  cached proot-armeabi-v7a.deb
+  cached talloc-armeabi-v7a.deb
+  cached shmem-armeabi-v7a.deb
+  patched DT_NEEDED libtalloc.so.2 -> libtalloc.so
+[x86_64] native (x86_64)
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.102_x86_64.deb
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_2.5.0_x86_64.deb
+  downloading https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/libandroid-shmem_0.7_x86_64.deb
+  patched DT_NEEDED libtalloc.so.2 -> libtalloc.so
+[arm64-v8a] rootfs (ARM64)
+  downloading https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/ca011a8b1c3b259e4cbbf83bf6841f1fd5f497c1/trixie/slim/oci/blobs/rootfs.tar.gz
+  -> assets/debian-arm64-v8a.bin (30.2 MB)
+[armeabi-v7a] rootfs (ARMv7 (32-bit ARM))
+  cached debian-armeabi-v7a.tar.gz
+  -> assets/debian-armeabi-v7a.bin (26.3 MB)
+[x86_64] rootfs (x86_64)
+  downloading https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/8f962b15d7884a90e17876a9303cbac909d119aa/trixie/slim/oci/blobs/rootfs.tar.gz
+  -> assets/debian-x86_64.bin (29.8 MB)
+done (arm64-v8a, armeabi-v7a, x86_64)
   /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-arm64-v8a.so (6736 bytes)
   /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-armeabi-v7a.so (5516 bytes)
   /home/runner/work/TermFold/TermFold/app/src/main/assets/compat-shim-x86_64.so (6880 bytes)
 == unit tests
-/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 11: ./gradlew: Permission denied
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+
+TarExtractorTest > extracts every entry without losing sync FAILED
+    java.lang.AssertionError at TarExtractorTest.kt:98
+
+27 tests completed, 1 failed, 1 skipped
+
+> Task :app:testDebugUnitTest FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:testDebugUnitTest'.
+> There were failing tests. See the report at: file:///home/runner/work/TermFold/TermFold/app/build/reports/tests/testDebugUnitTest/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1m 52s
+26 actionable tasks: 25 executed, 1 from cache
+Configuration cache entry stored.
 == debug apk
-/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 13: ./gradlew: Permission denied
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:compressDebugAssets
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroid-shmem.so, libandroidx.graphics.path.so, libdatastore_shared_counter.so, libproot-loader.so, libproot.so, libtalloc.so, libtermux.so. Run with --info option to learn more.
+
+> Task :app:mergeDebugJavaResource
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:validateSigningDebug
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:assembleDebug
+> Task :app:createDebugApkListingFileRedirect
+
+BUILD SUCCESSFUL in 57s
+39 actionable tasks: 19 executed, 20 up-to-date
+Configuration cache entry stored.
 == release apk
-/home/runner/work/_temp/75065bf3-c376-4c88-9629-41cc17187c35.sh: line 15: ./gradlew: Permission denied
+> Task :app:processReleaseResources
+> Task :app:compressReleaseAssets
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/TermFold/TermFold/app/src/main/java/com/termfold/app/ui/screens/PreviewPane.kt:522:38 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:mergeReleaseGeneratedProguardFiles
+> Task :app:expandReleaseArtProfileWildcards
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:minifyReleaseWithR8
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:convertShrunkResourcesToBinaryRelease
+> Task :app:optimizeReleaseResources
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:assembleRelease
+> Task :app:createReleaseApkListingFileRedirect
+
+BUILD SUCCESSFUL in 2m 32s
+50 actionable tasks: 43 executed, 7 from cache
+Configuration cache entry stored.
 == apk contents
-stat: cannot statx 'app/build/outputs/apk/*/*.apk': No such file or directory
--- app/build/outputs/apk/*/*.apk  bytes
-unzip:  cannot find or open app/build/outputs/apk/*/*.apk, app/build/outputs/apk/*/*.apk.zip or app/build/outputs/apk/*/*.apk.ZIP.
-
-No zipfiles found.
+-- app/build/outputs/apk/debug/TermFold-debug.apk 102828133 bytes
+14432 lib/arm64-v8a/libandroid-shmem.so
+10096 lib/arm64-v8a/libandroidx.graphics.path.so
+7112 lib/arm64-v8a/libdatastore_shared_counter.so
+18136 lib/arm64-v8a/libproot-loader.so
+259832 lib/arm64-v8a/libproot.so
+33592 lib/arm64-v8a/libtalloc.so
+9928 lib/arm64-v8a/libtermux.so
+11028 lib/armeabi-v7a/libandroid-shmem.so
+7252 lib/armeabi-v7a/libandroidx.graphics.path.so
+4416 lib/armeabi-v7a/libdatastore_shared_counter.so
+5632 lib/armeabi-v7a/libproot-loader.so
+172676 lib/armeabi-v7a/libproot.so
+21168 lib/armeabi-v7a/libtalloc.so
+17960 lib/armeabi-v7a/libtermux.so
+14368 lib/x86_64/libandroid-shmem.so
+10760 lib/x86_64/libandroidx.graphics.path.so
+6224 lib/x86_64/libdatastore_shared_counter.so
+18368 lib/x86_64/libproot-loader.so
+277144 lib/x86_64/libproot.so
+32536 lib/x86_64/libtalloc.so
+10200 lib/x86_64/libtermux.so
+6736 assets/compat-shim-arm64-v8a.so
+5516 assets/compat-shim-armeabi-v7a.so
+6880 assets/compat-shim-x86_64.so
+30189691 assets/debian-arm64-v8a.bin
+26272915 assets/debian-armeabi-v7a.bin
+29830418 assets/debian-x86_64.bin
+-- app/build/outputs/apk/release/TermFold-release.apk 90805194 bytes
+14432 lib/arm64-v8a/libandroid-shmem.so
+10096 lib/arm64-v8a/libandroidx.graphics.path.so
+7112 lib/arm64-v8a/libdatastore_shared_counter.so
+18136 lib/arm64-v8a/libproot-loader.so
+259832 lib/arm64-v8a/libproot.so
+33592 lib/arm64-v8a/libtalloc.so
+9928 lib/arm64-v8a/libtermux.so
+11028 lib/armeabi-v7a/libandroid-shmem.so
+7252 lib/armeabi-v7a/libandroidx.graphics.path.so
+4416 lib/armeabi-v7a/libdatastore_shared_counter.so
+5632 lib/armeabi-v7a/libproot-loader.so
+172676 lib/armeabi-v7a/libproot.so
+21168 lib/armeabi-v7a/libtalloc.so
+17960 lib/armeabi-v7a/libtermux.so
+14368 lib/x86_64/libandroid-shmem.so
+10760 lib/x86_64/libandroidx.graphics.path.so
+6224 lib/x86_64/libdatastore_shared_counter.so
+18368 lib/x86_64/libproot-loader.so
+277144 lib/x86_64/libproot.so
+32536 lib/x86_64/libtalloc.so
+10200 lib/x86_64/libtermux.so
+6736 assets/compat-shim-arm64-v8a.so
+5516 assets/compat-shim-armeabi-v7a.so
+6880 assets/compat-shim-x86_64.so
+30189691 assets/debian-arm64-v8a.bin
+26272915 assets/debian-armeabi-v7a.bin
+29830418 assets/debian-x86_64.bin
 == native ELF inside the armv7 apk
-unzip:  cannot find or open /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk, /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk.zip or /home/runner/work/TermFold/TermFold/app/build/outputs/apk/*/*.apk.ZIP.
-
-No zipfiles found.
---- *.apk *
-x/lib/armeabi-v7a/*: cannot open `x/lib/armeabi-v7a/*' (No such file or directory)
+--- TermFold-debug.apk libandroid-shmem.so
+x/lib/armeabi-v7a/libandroid-shmem.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r29 (14206865), stripped
+--- TermFold-debug.apk libandroidx.graphics.path.so
+x/lib/armeabi-v7a/libandroidx.graphics.path.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 21, built by NDK r25c (9519653), BuildID[sha1]=fa98a997cdd9b43f190a4bd20f3dad441b4062f0, stripped
+--- TermFold-debug.apk libdatastore_shared_counter.so
+x/lib/armeabi-v7a/libdatastore_shared_counter.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 19, built by NDK r25c (9519653), BuildID[sha1]=c2c541cc4337a0fc28271329ef238d6bddf6d70d, stripped
+--- TermFold-debug.apk libproot-loader.so
+x/lib/armeabi-v7a/libproot-loader.so: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), statically linked, stripped
+--- TermFold-debug.apk libproot.so
+x/lib/armeabi-v7a/libproot.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /system/bin/linker, for Android 24, built by NDK r30 (16248370), stripped
+--- TermFold-debug.apk libtalloc.so
+x/lib/armeabi-v7a/libtalloc.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r30 (16248370), stripped
+--- TermFold-debug.apk libtermux.so
+x/lib/armeabi-v7a/libtermux.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r21b (6352462), BuildID[sha1]=4ab92982ffe2389dcf08c9186e73a9b91b9cb2f8, stripped
+--- TermFold-release.apk libandroid-shmem.so
+x/lib/armeabi-v7a/libandroid-shmem.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r29 (14206865), stripped
+--- TermFold-release.apk libandroidx.graphics.path.so
+x/lib/armeabi-v7a/libandroidx.graphics.path.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 21, built by NDK r25c (9519653), BuildID[sha1]=fa98a997cdd9b43f190a4bd20f3dad441b4062f0, stripped
+--- TermFold-release.apk libdatastore_shared_counter.so
+x/lib/armeabi-v7a/libdatastore_shared_counter.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 19, built by NDK r25c (9519653), BuildID[sha1]=c2c541cc4337a0fc28271329ef238d6bddf6d70d, stripped
+--- TermFold-release.apk libproot-loader.so
+x/lib/armeabi-v7a/libproot-loader.so: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), statically linked, stripped
+--- TermFold-release.apk libproot.so
+x/lib/armeabi-v7a/libproot.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /system/bin/linker, for Android 24, built by NDK r30 (16248370), stripped
+--- TermFold-release.apk libtalloc.so
+x/lib/armeabi-v7a/libtalloc.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r30 (16248370), stripped
+--- TermFold-release.apk libtermux.so
+x/lib/armeabi-v7a/libtermux.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r21b (6352462), BuildID[sha1]=4ab92982ffe2389dcf08c9186e73a9b91b9cb2f8, stripped

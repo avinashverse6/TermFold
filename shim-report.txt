@@ -1,5 +1,7 @@
 qemu: /usr/bin/qemu-arm
 /opt/termfold/libtermfold-compat.so
+/dev/nvme0n1p15 on /boot/efi type vfat (rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro)
+/tmp/vfat.img on /tmp/rf/mnt/vfat type vfat (rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro)
 == identity
 armv7l
 armhf
@@ -9,14 +11,16 @@ ldd (Debian GLIBC 2.41-12+deb13u4) 2.41
 /bin/bash: line 1: git: command not found
 Usage: dpkg-deb [<option>...] <command>
 
-Fetched 9742 kB in 5s (2091 kB/s)
+Fetched 9742 kB in 3s (2857 kB/s)
 Reading package lists...
 == hard link refused by the filesystem -> must become a copy
+1
 ln exit=0
 COPY_OK
-nlink=2
+src nlink=1
+dst nlink=1
 == a link the kernel allows is still a link
-nlink=2
+t1 nlink=2
 == apt install in the 32-bit guest
 0 added, 0 removed; done.
 Running hooks in /etc/ca-certificates/update.d...
@@ -25,7 +29,11 @@ Python 3.13.5
 git version 2.47.3
 == node 22 armv7l
 590a2768199bdd0b848648a81cd7f07f88a5ceb27949f0c70d5e6652c3eaca69  node-v22.23.3-linux-armv7l.tar.xz
-tar (child): xz: Cannot exec: No such file or directory
-tar (child): Error is not recoverable: exiting now
-tar: Child returned status 2
-tar: Error is not recoverable: exiting now
+./node-v22.23.3-linux-armv7l/bin/node: error while loading shared libraries: libatomic.so.1: cannot open shared object file: No such file or directory
+== a real npm agent that is pure JavaScript (pi) on 32-bit ARM
+./node-v22.23.3-linux-armv7l/bin/node: error while loading shared libraries: libatomic.so.1: cannot open shared object file: No such file or directory
+/bin/bash: line 1: pi: command not found
+== and a native one must fail clearly, not silently
+node: error while loading shared libraries: libatomic.so.1: cannot open shared object file: No such file or directory
+== uv armv7 build exists
+200

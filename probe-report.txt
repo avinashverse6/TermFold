@@ -1,71 +1,63 @@
-=== termux pool
-STATUS 404 p/proot/proot_5.1.107.92_arm.deb size=146
-/tmp/debs/proot_5.1.107.92_arm.deb: HTML document, ASCII text, with CRLF line terminators
-STATUS 404 libt/libtalloc/libtalloc_2.4.3_arm.deb size=146
-/tmp/debs/libtalloc_2.4.3_arm.deb: HTML document, ASCII text, with CRLF line terminators
-STATUS 200 liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb size=6940
-/tmp/debs/libandroid-shmem_0.7_arm.deb: Debian binary package (format 2.0), with control.tar.xz/, data compression xz
-=== deb listing
--- /tmp/debs/libandroid-shmem_0.7_arm.deb
-debian-binary
-control.tar.xz
-data.tar.xz
--- /tmp/debs/libtalloc_2.4.3_arm.deb
-ar: /tmp/debs/libtalloc_2.4.3_arm.deb: file format not recognized
--- /tmp/debs/proot_5.1.107.92_arm.deb
-ar: /tmp/debs/proot_5.1.107.92_arm.deb: file format not recognized
-=== arm packages index
-STATUS 404 https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-arm/Packages.xz size=146
-=== deb contents
-ar: /tmp/debs/libtalloc_2.4.3_arm.deb: file format not recognized
-ar: /tmp/debs/proot_5.1.107.92_arm.deb: file format not recognized
---- ./control.tar.xz
-./control.tar.xz: XZ compressed data, checksum CRC64
---- ./data.tar.xz
-./data.tar.xz: XZ compressed data, checksum CRC64
---- ./data/data/com.termux/files/usr/include/sys/shm.h
-./data/data/com.termux/files/usr/include/sys/shm.h: C source, ASCII text
---- ./data/data/com.termux/files/usr/lib/libandroid-shmem.so
-./data/data/com.termux/files/usr/lib/libandroid-shmem.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r29 (14206865), stripped
- 0x00000001 (NEEDED)                     Shared library: [liblog.so]
- 0x00000001 (NEEDED)                     Shared library: [libc.so]
---- ./data/data/com.termux/files/usr/share/doc/libandroid-shmem/copyright
-./data/data/com.termux/files/usr/share/doc/libandroid-shmem/copyright: ASCII text
---- ./debian-binary
-./debian-binary: ASCII text
-=== rootfs
--rw-r--r-- 1 runner runner 26272915 Nov  6 07:01 /tmp/rootfs.tar.gz
-0b78a5fe7810b9342d6d9e33a1bae5b9a7b92e5a742e413e190b32a7b0b3cfb5  /tmp/rootfs.tar.gz
-/tmp/rf/usr/lib/arm-linux-gnueabihf/libc.so.6: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (GNU/Linux), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=8480e4cfa4b1327bfb61f60ecf0764f30944a3a8, for GNU/Linux 3.2.0, stripped
-/tmp/rf/bin/bash:                              ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=c00f2697968cbabce6866118b3f278ea2423b2f1, for GNU/Linux 3.2.0, stripped
-/tmp/rf/usr/bin/apt-get:                       ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=589cacf970afb53ea286113b98d064cae48d19c3, for GNU/Linux 3.2.0, stripped
-13.7
-Types: deb
-# http://snapshot.debian.org/archive/debian/20261104T212339Z
-URIs: http://deb.debian.org/debian
-Suites: trixie trixie-updates
-Components: main
-Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+=== proot pool listing
+STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/p/proot/
+../
+proot_5.1.107.102_aarch64.deb
+proot_5.1.107.102_arm.deb
+proot_5.1.107.102_i686.deb
+proot_5.1.107.102_x86_64.deb
+STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/
+../
+libtalloc_2.5.0_aarch64.deb
+libtalloc_2.5.0_arm.deb
+libtalloc_2.5.0_i686.deb
+libtalloc_2.5.0_x86_64.deb
+STATUS 200 https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/
+../
+libandroid-shmem_0.7_aarch64.deb
+libandroid-shmem_0.7_arm.deb
+libandroid-shmem_0.7_i686.deb
+libandroid-shmem_0.7_x86_64.deb
+=== old repos for 32-bit
+STATUS 404 https://packages.termux.dev/apt/termux-main-21/dists/stable/main/binary-arm/Packages.xz
+STATUS 404 https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-arm/Packages.xz
+=== arch list of termux-main dists
+=== qemu
+Selecting previously unselected package ubuntu-helper-virt-hwe.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 213197 files and directories currently installed.)
+Preparing to unpack .../ubuntu-helper-virt-hwe_1%3a10.2.1+ds-1ubuntu4.4_all.deb ...
+Unpacking ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
+Selecting previously unselected package ubuntu-virt.
+Preparing to unpack .../ubuntu-virt_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+Unpacking ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
+Selecting previously unselected package qemu-user.
+Preparing to unpack .../qemu-user_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+Unpacking qemu-user (1:10.2.1+ds-1ubuntu3.3) ...
+Selecting previously unselected package qemu-user-binfmt.
+Preparing to unpack .../qemu-user-binfmt_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+Unpacking qemu-user-binfmt (1:10.2.1+ds-1ubuntu3.3) ...
+Setting up ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
+Setting up ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
+Setting up qemu-user (1:10.2.1+ds-1ubuntu3.3) ...
+Setting up qemu-user-binfmt (1:10.2.1+ds-1ubuntu3.3) ...
+Processing triggers for man-db (2.13.1-1build1) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for systemd (259.9-0ubuntu0.1) ...
 
-Types: deb
-# http://snapshot.debian.org/archive/debian-security/20261104T212339Z
-URIs: http://deb.debian.org/debian-security
-Suites: trixie-security
-Components: main
-Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
-=== chroot under qemu
-E: Package 'qemu-user-static' has no installation candidate
-chroot: failed to run command '/bin/bash': Exec format error (os error 8)
-chroot failed 126
-=== node armv7l
-STATUS 200 https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz
-STATUS 200 https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.gz
--- https://nodejs.org/dist/v22.23.3/SHASUMS256.txt
-8b99058ec6f4e372b9887f8ecb577a292adb132d59e5104356428a758fdb126c  node-v22.23.3-linux-armv7l.tar.gz
-590a2768199bdd0b848648a81cd7f07f88a5ceb27949f0c70d5e6652c3eaca69  node-v22.23.3-linux-armv7l.tar.xz
-STATUS 404 https://unofficial-builds.nodejs.org/download/release/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz
-STATUS 404 https://unofficial-builds.nodejs.org/download/release/v22.23.3/node-v22.23.3-linux-armv7l.tar.gz
--- https://unofficial-builds.nodejs.org/download/release/v22.23.3/SHASUMS256.txt
-8d75b772aff0cc83ce43764bd36bec9317c11d9057a89ea27691ca10715f441f  node-v22.23.3-linux-armv6l.tar.gz
-b53a75da4094c2733d8274e2ccf9988600f3f1fbd8d73da7bcaa39633dec55a1  node-v22.23.3-linux-armv6l.tar.xz
-=== done
+Running kernel seems to be up-to-date.
+
+Restarting services...
+
+Service restarts being deferred:
+ systemctl restart hosted-compute-agent.service
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+-rwxr-xr-x 1 root root 4411192 Sep  2 09:18 /usr/bin/qemu-arm
+lrwxrwxrwx 1 root root      12 Sep  2 09:18 /usr/bin/qemu-arm64 -> qemu-aarch64
+-rwxr-xr-x 1 root root 4423480 Sep  2 09:18 /usr/bin/qemu-armeb
+lrwxrwxrwx 1 root root       8 Sep  2 09:18 /usr/bin/qemu-armel -> qemu-arm
+lrwxrwxrwx 1 root root       8 Sep  2 09:18 /usr/bin/qemu-armhf -> qemu-arm
+/usr/bin/qemu-arm

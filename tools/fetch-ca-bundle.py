@@ -4,10 +4,17 @@ The Ubuntu base image carries the archive keyring but no certificate authorities
 https:// request from inside the guest fails until one is provided. Installing
 `ca-certificates` with apt is not possible, because apt is the thing that needs working TLS.
 
-The bundle is taken from the official `ca-certificates` package that Ubuntu 24.04 ships, so it is
-the same set of authorities the distribution itself trusts.
+The bundle is the same set of authorities the distribution itself trusts, taken from whichever
+source is available:
+
+* the bundle this machine already has (`/etc/ssl/certs/ca-certificates.crt` on Debian and Ubuntu,
+  which is what `update-ca-certificates` writes from that very package) — no network at all;
+* otherwise the newest `ca-certificates` .deb in Ubuntu's pool, assembled the way
+  `update-ca-certificates` would.
 
 Run from the repo root:  py -3 tools/fetch-ca-bundle.py
+Force the download:     py -3 tools/fetch-ca-bundle.py --download
+Use another bundle:      py -3 tools/fetch-ca-bundle.py --from /path/to/ca-certificates.crt
 """
 import io
 import lzma
@@ -22,6 +29,30 @@ ASSETS = os.path.join(ROOT, "app", "src", "main", "assets")
 WORK = os.path.join(ROOT, ".work")
 
 POOL = "http://archive.ubuntu.com/ubuntu/pool/main/c/ca-certificates/"
+
+# Where a Debian-family machine keeps the bundle `update-ca-certificates` generates, then the
+# equivalents on Fedora/RHEL and macOS.
+HOST_BUNDLES = (
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/etc/pki/tls/certs/ca-bundle.crt",
+    "/etc/ssl/cert.pem",
+)
+
+
+def host_bundle():
+    """The bundle this machine already trusts, or None.
+
+    On Debian and Ubuntu this file is written from the same `ca-certificates` package the download
+    path unpacks, so it is the same authorities without a network round trip. CI uses this: the
+    pool index is a directory listing that changes shape, and a build should not depend on it.
+    """
+    for path in HOST_BUNDLES:
+        try:
+            if os.path.getsize(path) > 100_000:
+                return path
+        except OSError:
+            continue
+    return None
 
 
 def newest_deb():
@@ -79,9 +110,32 @@ def data_tar(deb):
     raise SystemExit("no data.tar in " + deb)
 
 
-def main():
+def write_bundle(pem_parts, label):
+    out = os.path.join(ASSETS, "ca-certificates.crt")
+    with open(out, "wb") as handle:
+        for pem in pem_parts:
+            handle.write(pem if pem.endswith(b"\n") else pem + b"\n")
+    size = os.path.getsize(out)
+    print(f"{label} -> assets/ca-certificates.crt "
+          f"({size} bytes, {len(pem_parts)} authorities)")
+    return out
+
+
+def main(argv):
+    force_download = "--download" in argv
+    given = None
+    if "--from" in argv:
+        given = argv[argv.index("--from") + 1]
     os.makedirs(ASSETS, exist_ok=True)
     os.makedirs(WORK, exist_ok=True)
+
+    local = given or (None if force_download else host_bundle())
+    if local:
+        with open(local, "rb") as handle:
+            data = handle.read()
+        blocks = re.findall(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", data, re.S)
+        write_bundle([block + b"\n" for block in blocks], local)
+        return 0
 
     deb_name = newest_deb()
     deb = os.path.join(WORK, deb_name)
@@ -105,15 +159,8 @@ def main():
         raise SystemExit("no certificates found inside " + deb_name)
 
     authorities.sort(key=lambda pair: pair[0])
-    out = os.path.join(ASSETS, "ca-certificates.crt")
-    with open(out, "wb") as handle:
-        for _name, pem in authorities:
-            handle.write(pem if pem.endswith(b"\n") else pem + b"\n")
-
-    size = os.path.getsize(out)
-    print(f"{deb_name} -> assets/ca-certificates.crt "
-          f"({size} bytes, {len(authorities)} authorities)")
+    write_bundle([pem for _name, pem in authorities], deb_name)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))

@@ -5,72 +5,74 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe (everything captured to a report)
+      - name: Probe
         run: |
-          set +e
-          exec > >(tee /tmp/report.txt) 2>&1
-          echo "=== termux pool"
-          BASE=https://packages.termux.dev/apt/termux-main/pool/main
-          mkdir -p /tmp/debs
+          R=/tmp/report.txt
+          : > $R
+          log() { echo "$@" >> $R; }
+
+          log "=== proot pool listing"
           for u in \
-            p/proot/proot_5.1.107.92_arm.deb \
-            libt/libtalloc/libtalloc_2.4.3_arm.deb \
-            liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb ; do
-            f=/tmp/debs/$(basename $u)
-            code=$(curl -sSL -o "$f" -w '%{http_code}' "$BASE/$u")
-            echo "STATUS $code $u size=$(stat -c%s "$f" 2>/dev/null)"
-            file "$f"
+            https://packages.termux.dev/apt/termux-main/pool/main/p/proot/ \
+            https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/ \
+            https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/ ; do
+            code=$(curl -sSL -o /tmp/dir.html -w '%{http_code}' "$u")
+            log "STATUS $code $u"
+            [ "$code" = "200" ] && grep -oE 'href="[^"]+"' /tmp/dir.html | sed 's/href=//' | tr -d '"' >> $R
           done
-          echo "=== deb listing"
-          for f in /tmp/debs/*.deb; do echo "-- $f"; ar t "$f"; done
-          echo "=== arm packages index"
-          for d in stable; do
-            u="https://packages.termux.dev/apt/termux-main/dists/$d/main/binary-arm/Packages.xz"
-            code=$(curl -sSL -o /tmp/P.xz -w '%{http_code}' "$u")
-            echo "STATUS $code $u size=$(stat -c%s /tmp/P.xz 2>/dev/null)"
-            if [ "$code" = "200" ]; then
-              echo "COUNT $(xz -dc /tmp/P.xz | grep -c '^Package:')"
-              xz -dc /tmp/P.xz | grep -A4 -E '^Package: (proot|libtalloc|libandroid-shmem)$' | head -60
-            fi
-          done
-          echo "=== deb contents"
-          mkdir -p /tmp/x && cd /tmp/x
-          for f in /tmp/debs/*.deb; do ar x "$f"; done
-          for t in data.tar.*; do tar xf "$t"; done
-          find . -type f | sort | while read f; do echo "--- $f"; file "$f"; readelf -d "$f" 2>/dev/null | grep NEEDED; done
-          echo "=== rootfs"
-          cd /tmp
-          URL="https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/7978fc031d5b52b4496cff0bafb95b9bc828c79a/trixie/slim/oci/blobs/rootfs.tar.gz"
-          curl -fsSL -o /tmp/rootfs.tar.gz "$URL"
-          ls -l /tmp/rootfs.tar.gz
-          sha256sum /tmp/rootfs.tar.gz
-          mkdir -p /tmp/rf && tar xzf /tmp/rootfs.tar.gz -C /tmp/rf
-          file /tmp/rf/usr/lib/arm-linux-gnueabihf/libc.so.6 /tmp/rf/bin/bash /tmp/rf/usr/bin/apt-get
-          cat /tmp/rf/etc/debian_version
-          cat /tmp/rf/etc/apt/sources.list.d/* 2>/dev/null
-          echo "=== chroot under qemu"
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-user-static binfmt-support
-          sudo cp /etc/resolv.conf /tmp/rf/etc/resolv.conf
-          sudo mount -t proc proc /tmp/rf/proc
-          sudo chroot /tmp/rf /bin/bash -c 'export DEBIAN_FRONTEND=noninteractive; set -x; uname -m; dpkg --print-architecture; apt-get update 2>&1 | tail -3; apt-get install -y --no-install-recommends ca-certificates python3 git curl nodejs npm 2>&1 | tail -6; python3 --version; git --version; node --version; npm --version; apt-cache policy nodejs | head -4' || echo "chroot failed $?"
-          echo "=== node armv7l"
-          for base in https://nodejs.org/dist https://unofficial-builds.nodejs.org/download/release; do
-            for ext in tar.xz tar.gz; do
-              u="$base/v22.23.3/node-v22.23.3-linux-armv7l.$ext"
-              echo "STATUS $(curl -sS -o /dev/null -w '%{http_code}' -I "$u") $u"
+
+          log "=== old repos for 32-bit"
+          for repo in termux-main-21 termux-main; do
+            for d in stable; do
+              u="https://packages.termux.dev/apt/$repo/dists/$d/main/binary-arm/Packages.xz"
+              code=$(curl -sSL -o /tmp/P.xz -w '%{http_code}' "$u")
+              log "STATUS $code $u"
+              if [ "$code" = "200" ]; then
+                xz -dc /tmp/P.xz | grep -A4 -E '^Package: (proot|libtalloc|libandroid-shmem|nodejs)$' >> $R
+              fi
             done
-            u="$base/v22.23.3/SHASUMS256.txt"
-            echo "-- $u"
-            curl -sSL "$u" | grep -E 'armv7l|armv6l' | head -4 || echo "(no armv7l line)"
           done
-          echo "=== done"
+          log "=== arch list of termux-main dists"
+          curl -sSL "https://packages.termux.dev/apt/termux-main/dists/stable/" | grep -oE 'binary-[a-z0-9]+' | sort -u >> $R
+
+          log "=== qemu"
+          sudo apt-get update -qq >> $R 2>&1
+          sudo apt-get install -y -qq qemu-user >> $R 2>&1
+          ls -l /usr/bin/qemu-arm* >> $R 2>&1 || log "no qemu-arm"
+          which qemu-arm-static qemu-arm >> $R 2>&1
+
+          log "=== chroot test (armhf under qemu)"
+          mkdir -p /tmp/rf
+          tar xzf /tmp/rootfs-does-not-exist 2>/dev/null
+          URL="https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts/7978fc031d5b52b4496cff0bafb95b9bc828c79a/trixie/slim/oci/blobs/rootfs.tar.gz"
+          curl -fsSL -o /tmp/rootfs.tar.gz "$URL" && sha256sum /tmp/rootfs.tar.gz >> $R
+          tar xzf /tmp/rootfs.tar.gz -C /tmp/rf
+          Q=$(command -v qemu-arm-static || command -v qemu-arm)
+          sudo cp "$Q" /tmp/rf/usr/bin/qemu-arm-static
+          sudo cp /etc/resolv.conf /tmp/rf/etc/resolv.conf
+          sudo mkdir -p /tmp/rf/proc && sudo mount -t proc proc /tmp/rf/proc
+          sudo chroot /tmp/rf /usr/bin/qemu-arm-static /bin/bash -c '
+            export DEBIAN_FRONTEND=noninteractive
+            uname -m; dpkg --print-architecture
+            apt-get update 2>&1 | tail -2
+            apt-get install -y --no-install-recommends ca-certificates python3 git curl nodejs npm 2>&1 | tail -4
+            python3 --version; git --version; node --version; npm --version
+            apt-cache policy nodejs | head -4
+            ldconfig -p | grep -c .
+            ln /bin/true /tmp/hl && echo "hardlink ok" && rm /tmp/hl
+          ' >> $R 2>&1
+          log "chroot exit=$?"
+
+          log "=== node armv7l sha"
+          curl -sSL https://nodejs.org/dist/v22.23.3/SHASUMS256.txt | grep armv7l >> $R
+          log "=== done"
+          cat $R
 
       - name: Publish report to the branch
         if: always()

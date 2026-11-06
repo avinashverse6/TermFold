@@ -3,7 +3,7 @@
 TermFold runs a Debian userland and a set of AI coding agents on top of PRoot. Every native piece
 of that stack — PRoot, its loader, `libtalloc`, `libandroid-shmem`, the terminal's `libtermux.so`,
 the compatibility shim and the Debian image itself — belongs to one CPU architecture. This page
-records what 32-bit ARM needs, what is in place, and what is still missing.
+records what 32-bit ARM needs, what is in place, and what has actually been run.
 
 ## What is supported
 
@@ -11,7 +11,7 @@ records what 32-bit ARM needs, what is in place, and what is still missing.
 | --- | --- | --- |
 | `arm64-v8a` | arm64 | Supported (unchanged; this is what almost every device uses) |
 | `x86_64` | amd64 | Supported (unchanged; emulators and a few tablets) |
-| `armeabi-v7a` | armhf | **Runtime binaries not in this repository yet** — see [Completing the port](#completing-the-port) |
+| `armeabi-v7a` | armhf | Supported — own PRoot build, own Debian `armhf` image, own compatibility shim |
 | `x86`, `armeabi`, `riscv64`, … | — | Not supported, and never presented as supported |
 
 ### Hardware baseline
@@ -86,35 +86,60 @@ The 16 KB page-size requirement that applies to **arm64** libraries on newer dev
 here: 32-bit ARM images are 4 KB-page devices. What was actually checked is that the shim's
 segments are aligned well past 4 KB (`0x10000`), which is safe either way.
 
-## Completing the port
+## The 32-bit runtime
 
-The four host-side binaries are Termux `arm` packages, which is what the existing `arm64-v8a` and
-`x86_64` builds use as well (Termux patches PRoot for Android's seccomp policy and adds
-`--kill-on-exit`, which upstream PRoot does not have):
+The four host-side binaries are Termux `arm` packages, the same provenance as the `arm64-v8a` and
+`x86_64` builds (Termux patches PRoot for Android's seccomp policy and adds `--kill-on-exit`, which
+upstream PRoot does not have). Termux stopped building the 32-bit architectures in 2023, so the
+`arm` packages are a different version from the 64-bit ones — they are the last builds it published
+and nothing newer exists for them:
 
-| File in `jniLibs/armeabi-v7a/` | Termux package (arch `arm`) | Expected ELF |
-| --- | --- | --- |
-| `libproot.so` | `proot_5.1.107.92_arm.deb` → `bin/proot` | ELF32, EM_ARM, DYN |
-| `libproot-loader.so` | same deb → `libexec/proot/loader` | ELF32, EM_ARM, EXEC, static |
-| `libtalloc.so` | `libtalloc_2.4.3_arm.deb` → `lib/libtalloc.so.2.4.3` | ELF32, EM_ARM, DYN |
-| `libandroid-shmem.so` | `libandroid-shmem_0.7_arm.deb` → `lib/libandroid-shmem.so` | ELF32, EM_ARM, DYN |
+| File in `jniLibs/armeabi-v7a/` | Termux package (arch `arm`) | Bytes | SHA-256 of the staged file |
+| --- | --- | --- | --- |
+| `libproot.so` | `proot_5.1.107.102_arm.deb` → `bin/proot` | 172,676 | `c8054f34248e9ada0efb2453fe024166077bd3a7948dc745411f24034f02e6cd` |
+| `libproot-loader.so` | same package → `libexec/proot/loader` | 5,632 | `7c3d9f74b8c8a87c46766d8bbeebeabf24cc4de507690ab04ba7f0190a598500` |
+| `libtalloc.so` | `libtalloc_2.5.0_arm.deb` → `lib/libtalloc.so.2.5.0` | 21,168 | `a376ac7cbd18e6777657328c701b4979610473811761edc0fdb0ec388d8504af` |
+| `libandroid-shmem.so` | `libandroid-shmem_0.7_arm.deb` → `lib/libandroid-shmem.so` | 11,028 | `ef35602fa6c8bca9081af1594fabeacbd98b6e8921dd6be54484291933b8040f` |
+
+Licences are the packages' own: PRoot GPL-2.0, `libtalloc` LGPL-3.0-or-later, `libandroid-shmem`
+BSD-3-Clause (same as the 64-bit copies).
+
+Everything below was checked with `readelf` on the files that ship:
+
+```
+libproot.so          ELF32  Machine: ARM  DYN   NEEDED libtalloc.so, libandroid-shmem.so, libc.so
+libproot-loader.so   ELF32  Machine: ARM  EXEC  (statically linked, no NEEDED)
+libtalloc.so         ELF32  Machine: ARM  DYN   NEEDED libc.so
+libandroid-shmem.so  ELF32  Machine: ARM  DYN   NEEDED liblog.so, libc.so
+Tag_CPU_arch: v7   Tag_THUMB_ISA_use: Thumb-2   Tag_FP_arch: VFPv3   Tag_ARM_ISA_use: Yes
+```
+
+`libproot.so`'s three dependencies are two files that sit beside it (renamed `lib*.so` so Android
+lets them live in `nativeLibraryDir`, with the `DT_NEEDED` of `libtalloc.so.2` rewritten in place)
+and bionic's `libc.so`, which the device provides.
 
 A 32-bit PRoot needs only **one** loader: upstream `src/arch.h` defines `HAS_LOADER_32BIT` for the
 64-bit architectures only, so Termux's `arm` package ships no `loader32` and `PROOT_LOADER_32` is
 not used at all.
 
-To finish it, on a machine with network access:
+### Why the binaries are committed, and how they stay pinned
 
-```bash
-py -3 tools/fetch-shell-runtime.py --record-checksums armeabi-v7a   # prints the SHA-256s
-# paste them into DEB_SHA256 in tools/fetch-shell-runtime.py, review, commit
-py -3 tools/fetch-shell-runtime.py --abi armeabi-v7a                # stages jniLibs/ + assets/
-git add app/src/main/jniLibs/armeabi-v7a app/src/main/assets/debian-armeabi-v7a.bin
+The four files live in the repository, exactly like the arm64 and x86_64 ones, because Android will
+only execute what is in `nativeLibraryDir`, and that directory only ever holds what the APK carries.
+`tools/fetch-shell-runtime.py` therefore checks the committed files against `STAGE_SHA256` and, when
+they match, stages nothing at all — a normal build needs no network for them:
+
+```
+[arm64-v8a] native: already staged, digests match STAGE_SHA256
+[armeabi-v7a] native: already staged, digests match STAGE_SHA256
+[x86_64] native: already staged, digests match STAGE_SHA256
 ```
 
-The fetch script refuses to stage an unpinned package, so an unreviewed binary cannot reach
-`jniLibs` by accident. Until the digests are in `DEB_SHA256`, the CI workflow builds the other two
-ABIs and skips the 32-bit one with a notice rather than publishing an unverified runtime.
+If a file is missing or different, the script goes back to the pinned `.deb` and refuses to stage
+anything whose package digest has not been recorded (`DEB_SHA256`; record with
+`py -3 tools/fetch-shell-runtime.py --record-checksums armeabi-v7a`). A downloaded package is then
+staged and the result re-checked against `STAGE_SHA256`, so a differently repackaged `.deb` is a
+build failure rather than a surprise on a device.
 
 ### What does *not* need changing
 
@@ -153,9 +178,16 @@ binaries. Checked against the npm registry and each project's release assets on 
 | Qwen Code | npm, JS entry | **Works via a workaround** | JS entry point; platform extras (`node-pty`, `sharp`, Bun) are optional and may fall back to source builds |
 | Cursor CLI, Devin | registry binary | **Not supported** (expected) | the ACP registry offers these as `linux-x86_64`/`linux-aarch64` binaries only |
 | omp (oh-my-pi) | GitHub release binary | **Not supported** | `can1357/oh-my-pi` v18.17.0 assets: `omp-linux-{x64,arm64,musl-x64,musl-arm64}`; no armv7 |
-| Node.js | official tarball | **Works** | `node-v22.x-linux-armv7l.tar.xz` is published with every v22 release |
+| Node.js | official tarball | **Works**, once `libatomic1` is installed | `node-v22.x-linux-armv7l.tar.xz` is published with every v22 release; that build links against `libatomic.so.1`, which no Debian base image installs |
 | uv / uvx | official tarball | **Works** | `uv-armv7-unknown-linux-musleabihf.tar.gz` (note: `musleabihf`, not `musl`) |
 | Bun | official tarball | **Not supported** | `oven-sh/bun` v1.4.4 assets: no 32-bit ARM |
+
+The `libatomic1` package is what 32-bit ARM Node needs and the 64-bit builds do not: without it
+`node` dies with `error while loading shared libraries: libatomic.so.1` before it runs a line of
+JavaScript, which broke every JavaScript agent at once. Both install paths now provide it — the
+setup script installs the package with the other developer tools, and `AcpInstaller` probes Node
+after unpacking it and installs `libatomic1` only if the linker asks for it, so 64-bit devices never
+take that path.
 
 Agents without a 32-bit build are **not offered**, and a session opened for one explains why
 (`acp_agent_cpu_unsupported`) instead of blaming the network. Nothing else is affected: Shell,
@@ -165,12 +197,33 @@ Practical limit worth knowing: a 32-bit process has about 2–3 GB of address sp
 own limit is lower still once the agent and Node are resident. Large agent workloads on an ARMv7
 device will be memory-bound long before they are CPU-bound.
 
-## Remaining risks (not verified)
+## What has been run, and what has not
 
-- PRoot's seccomp path on 32-bit ARM (`src/arch.h` uses `tcall(2)` as the "void" syscall there)
-  has not been exercised. `PROOT_NO_SECCOMP` must stay unset, exactly as on arm64.
-- `apt update` / `apt install` / `dpkg -i` under PRoot on armhf, and hard links, symlinks, `chmod`,
-  and executing guest `armhf` binaries have **not** been run: no 32-bit ARM device, emulator or
-  `qemu-arm` is available in the environment where this was written.
-- 32-bit Android devices are usually older and slower; expect the first-run setup to take
+Verified in CI (`.github/workflows/android.yml`, job *armhf guest (qemu-arm)*): the shipped
+`armhf` image is unpacked and booted with `qemu-arm` in a chroot on a normal x86_64 runner, and the
+compatibility shim is preloaded into it. That exercises the guest itself; it does **not** exercise
+PRoot (nothing runs the guest through it) and it is not a 32-bit Android device.
+
+- `uname -m` → `armv7l`, `dpkg --print-architecture` → `armhf`, glibc 2.41.
+- The 32-bit compatibility shim is accepted by `ld.so` for every guest program (`ld.so.preload`).
+- A filesystem that refuses `link(2)` (vfat, standing in for Android's SELinux policy) makes a
+  hard link fall back to a copy; a link the kernel allows stays a link.
+- `apt-get install python3 git curl ca-certificates libatomic1`, then `python3` and `git` run.
+- Node.js `v22.23.3` `linux-armv7l`: the tarball matches its published SHA-256, `node` starts,
+  reports `arm linux`, and `npm --version` works.
+- `npm install -g @earendil-works/pi-coding-agent` then `pi --version`.
+- A native-only agent (`@anthropic-ai/claude-code`) is installed and run, and its refusal is
+  recorded rather than assumed.
+
+Still unverified, and not claimed:
+
+- **PRoot itself on 32-bit ARM.** Its seccomp path (`src/arch.h` uses `tcall(2)` where the 64-bit
+  builds use a different void syscall) has not been exercised. `PROOT_NO_SECCOMP` must stay unset,
+  exactly as on arm64.
+- **A real 32-bit Android device.** First run, the PTY, the terminal emulator's `libtermux.so`, the
+  app's own JNI, and the file paths under Android's storage have only been checked statically (the
+  terminal AAR declares `armeabi-v7a` and the APK is checked with `readelf` per entry).
+- **Memory pressure.** A 32-bit process has about 2–3 GB of address space, and less once the agent
+  and Node are resident; large agent workloads will be memory-bound before they are CPU-bound.
+- 32-bit Android devices are usually older and slower: expect the first-run setup to take
   noticeably longer than on arm64.

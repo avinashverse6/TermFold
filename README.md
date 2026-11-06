@@ -106,11 +106,11 @@ app, proot scripts and broken package installs. TermFold is one app that does it
 Requirements: Android 8.0+ on an arm64 (almost every phone and tablet) or x86_64 device, and a
 few GB of free space for Debian and the tools you install.
 
-**32-bit ARM (`armeabi-v7a`):** the Debian image, the terminal and the app all build for it, but
-this repository does not carry the 32-bit PRoot binaries yet, so a 32-bit build would install and
-then refuse to start a session. See [docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md) for what is in
-place, the ARMv7 + Thumb-2 + VFPv3 baseline the Debian image needs, and the one command that
-finishes the port.
+**32-bit ARM (`armeabi-v7a`):** supported. Older 32-bit phones and tablets get their own PRoot
+build, the terminal library and a Debian 13 `armhf` image, all built for 32-bit ARM — nothing is
+reused from the 64-bit builds. It needs an ARMv7-A CPU with Thumb-2 and VFPv3 (every ARMv7 Android
+device has them) and the 32-bit APK; see [docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md) for the
+binaries, how they were checked, and which agent CLIs run there.
 
 **Automatic updates:** add the repo to [Obtainium](https://github.com/ImranR98/Obtainium) (badge
 above) and it installs each new release for you.
@@ -153,8 +153,8 @@ py -3 tools/fetch-ca-bundle.py        # the CA bundle, into assets/
 ```
 
 The script stages whatever architectures its package tables describe; `--abi armeabi-v7a` limits it
-to one. APKs carry the ABIs that are present, so a checkout without the 32-bit runtime simply
-produces the same arm64 + x86_64 APKs as before. A single-architecture APK:
+to one. The PRoot binaries are committed and pinned by SHA-256, so it verifies what is already there
+and only downloads a Debian image; APKs carry the ABIs that are present. A single-architecture APK:
 
 ```bash
 ./gradlew :app:assembleRelease -Ptermfold.abis=armeabi-v7a
@@ -191,8 +191,8 @@ Curious how it works? [How TermFold runs Debian and AI coding agents on Android 
 ## Limits
 
 - **Architecture:** the Debian image must match the CPU (arm64, armv7 or x86_64); there is no
-  emulation. 32-bit ARM needs ARMv7 + Thumb-2 + VFPv3-D16, and its runtime binaries still have to
-  be fetched ([docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md)).
+  emulation. 32-bit ARM needs ARMv7-A + Thumb-2 + VFPv3-D16 and the `armeabi-v7a` APK
+  ([docs/ARMHF-SUPPORT.md](docs/ARMHF-SUPPORT.md)).
 - **Agents on 32-bit ARM:** Claude Code, Codex, OpenCode, Cursor, Devin and omp publish 64-bit
   binaries only, so they are not offered there; Gemini CLI, Pi, Qwen, and everything from `apt`
   work. The full matrix is in the same document.

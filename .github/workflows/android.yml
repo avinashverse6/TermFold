@@ -35,13 +35,19 @@ jobs:
         with:
           python-version: "3.11"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Accept the Android SDK licences
+        run: |
+          SDKM=$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")
+          [ -x "$SDKM" ] && yes | "$SDKM" --licenses > /dev/null 2>&1 || true
       # The tar tests read the image the app ships, so one ABI has to be staged first.
       - name: Stage PRoot and the Debian image (x86_64)
         run: python3 tools/fetch-shell-runtime.py --abi x86_64
       - name: Stage the CA bundle
         run: python3 tools/fetch-ca-bundle.py
       - name: Unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest 2>&1 | tee gradle-test.log
       - name: Report the test results
         if: always()
         run: |
@@ -52,8 +58,20 @@ jobs:
           name: unit-test-results
           path: app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: warn
+      - name: Explain a failed build
+        if: failure()
+        run: |
+          for log in gradle-test.log build.log; do
+            [ -f "$log" ] || continue
+            tail -n 60 "$log" | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | tr -d '\r' | cut -c1-900)"
+            done
+          done
+          exit 0
       - name: Lint
-        run: ./gradlew --no-daemon :app:lintDebug
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :app:lintDebug 2>&1 | tee -a gradle-test.log
 
   apk:
     name: APK ${{ matrix.abi }}
@@ -74,6 +92,10 @@ jobs:
         with:
           python-version: "3.11"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Accept the Android SDK licences
+        run: |
+          SDKM=$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")
+          [ -x "$SDKM" ] && yes | "$SDKM" --licenses > /dev/null 2>&1 || true
       # Verifies the committed PRoot, loader, talloc and shmem against their pinned SHA-256 and
       # stages this ABI's Debian image. No architecture is ever borrowed from another one.
       - name: Stage the runtime
@@ -81,7 +103,20 @@ jobs:
       - name: Stage the CA bundle
         run: python3 tools/fetch-ca-bundle.py
       - name: Build debug and release for ${{ matrix.abi }}
-        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease -Ptermfold.abis=${{ matrix.abi }}
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease \
+            -Ptermfold.abis=${{ matrix.abi }} 2>&1 | tee build.log
+      - name: Explain a failed build
+        if: failure()
+        run: |
+          for log in gradle-test.log build.log; do
+            [ -f "$log" ] || continue
+            tail -n 60 "$log" | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | tr -d '\r' | cut -c1-900)"
+            done
+          done
+          exit 0
       - name: Check the APK's native libraries
         run: |
           for f in app/build/outputs/apk/*/*.apk; do
@@ -113,12 +148,28 @@ jobs:
         with:
           python-version: "3.11"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Accept the Android SDK licences
+        run: |
+          SDKM=$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")
+          [ -x "$SDKM" ] && yes | "$SDKM" --licenses > /dev/null 2>&1 || true
       - name: Stage the runtime and the Debian images
         run: |
           python3 tools/fetch-shell-runtime.py
           python3 tools/fetch-ca-bundle.py
       - name: Build
-        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease 2>&1 | tee build.log
+      - name: Explain a failed build
+        if: failure()
+        run: |
+          for log in gradle-test.log build.log; do
+            [ -f "$log" ] || continue
+            tail -n 60 "$log" | while IFS= read -r line; do
+              echo "::error::$(printf '%s' "$line" | tr -d '\r' | cut -c1-900)"
+            done
+          done
+          exit 0
       - name: Check the APK's native libraries
         run: |
           for f in app/build/outputs/apk/*/*.apk; do

@@ -1,0 +1,71 @@
+=== termux pool
+STATUS 404 p/proot/proot_5.1.107.92_arm.deb size=146
+/tmp/debs/proot_5.1.107.92_arm.deb: HTML document, ASCII text, with CRLF line terminators
+STATUS 404 libt/libtalloc/libtalloc_2.4.3_arm.deb size=146
+/tmp/debs/libtalloc_2.4.3_arm.deb: HTML document, ASCII text, with CRLF line terminators
+STATUS 200 liba/libandroid-shmem/libandroid-shmem_0.7_arm.deb size=6940
+/tmp/debs/libandroid-shmem_0.7_arm.deb: Debian binary package (format 2.0), with control.tar.xz/, data compression xz
+=== deb listing
+-- /tmp/debs/libandroid-shmem_0.7_arm.deb
+debian-binary
+control.tar.xz
+data.tar.xz
+-- /tmp/debs/libtalloc_2.4.3_arm.deb
+ar: /tmp/debs/libtalloc_2.4.3_arm.deb: file format not recognized
+-- /tmp/debs/proot_5.1.107.92_arm.deb
+ar: /tmp/debs/proot_5.1.107.92_arm.deb: file format not recognized
+=== arm packages index
+STATUS 404 https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-arm/Packages.xz size=146
+=== deb contents
+ar: /tmp/debs/libtalloc_2.4.3_arm.deb: file format not recognized
+ar: /tmp/debs/proot_5.1.107.92_arm.deb: file format not recognized
+--- ./control.tar.xz
+./control.tar.xz: XZ compressed data, checksum CRC64
+--- ./data.tar.xz
+./data.tar.xz: XZ compressed data, checksum CRC64
+--- ./data/data/com.termux/files/usr/include/sys/shm.h
+./data/data/com.termux/files/usr/include/sys/shm.h: C source, ASCII text
+--- ./data/data/com.termux/files/usr/lib/libandroid-shmem.so
+./data/data/com.termux/files/usr/lib/libandroid-shmem.so: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, for Android 24, built by NDK r29 (14206865), stripped
+ 0x00000001 (NEEDED)                     Shared library: [liblog.so]
+ 0x00000001 (NEEDED)                     Shared library: [libc.so]
+--- ./data/data/com.termux/files/usr/share/doc/libandroid-shmem/copyright
+./data/data/com.termux/files/usr/share/doc/libandroid-shmem/copyright: ASCII text
+--- ./debian-binary
+./debian-binary: ASCII text
+=== rootfs
+-rw-r--r-- 1 runner runner 26272915 Nov  6 07:01 /tmp/rootfs.tar.gz
+0b78a5fe7810b9342d6d9e33a1bae5b9a7b92e5a742e413e190b32a7b0b3cfb5  /tmp/rootfs.tar.gz
+/tmp/rf/usr/lib/arm-linux-gnueabihf/libc.so.6: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (GNU/Linux), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=8480e4cfa4b1327bfb61f60ecf0764f30944a3a8, for GNU/Linux 3.2.0, stripped
+/tmp/rf/bin/bash:                              ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=c00f2697968cbabce6866118b3f278ea2423b2f1, for GNU/Linux 3.2.0, stripped
+/tmp/rf/usr/bin/apt-get:                       ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-armhf.so.3, BuildID[sha1]=589cacf970afb53ea286113b98d064cae48d19c3, for GNU/Linux 3.2.0, stripped
+13.7
+Types: deb
+# http://snapshot.debian.org/archive/debian/20261104T212339Z
+URIs: http://deb.debian.org/debian
+Suites: trixie trixie-updates
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+
+Types: deb
+# http://snapshot.debian.org/archive/debian-security/20261104T212339Z
+URIs: http://deb.debian.org/debian-security
+Suites: trixie-security
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp
+=== chroot under qemu
+E: Package 'qemu-user-static' has no installation candidate
+chroot: failed to run command '/bin/bash': Exec format error (os error 8)
+chroot failed 126
+=== node armv7l
+STATUS 200 https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz
+STATUS 200 https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-armv7l.tar.gz
+-- https://nodejs.org/dist/v22.23.3/SHASUMS256.txt
+8b99058ec6f4e372b9887f8ecb577a292adb132d59e5104356428a758fdb126c  node-v22.23.3-linux-armv7l.tar.gz
+590a2768199bdd0b848648a81cd7f07f88a5ceb27949f0c70d5e6652c3eaca69  node-v22.23.3-linux-armv7l.tar.xz
+STATUS 404 https://unofficial-builds.nodejs.org/download/release/v22.23.3/node-v22.23.3-linux-armv7l.tar.xz
+STATUS 404 https://unofficial-builds.nodejs.org/download/release/v22.23.3/node-v22.23.3-linux-armv7l.tar.gz
+-- https://unofficial-builds.nodejs.org/download/release/v22.23.3/SHASUMS256.txt
+8d75b772aff0cc83ce43764bd36bec9317c11d9057a89ea27691ca10715f441f  node-v22.23.3-linux-armv6l.tar.gz
+b53a75da4094c2733d8274e2ccf9988600f3f1fbd8d73da7bcaa39633dec55a1  node-v22.23.3-linux-armv6l.tar.xz
+=== done
